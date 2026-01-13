@@ -18,13 +18,13 @@ export default function EditorPage() {
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login')
-    }
-  }, [user, loading, router])
-
   const handleEventClick = async (eventId: string) => {
+    // Check if user is authenticated
+    if (!user) {
+      router.push('/login')
+      return
+    }
+
     setSelectedEvent(eventId)
     setGenerating(true)
     setError(null)
@@ -68,10 +68,6 @@ export default function EditorPage() {
         </div>
       </main>
     )
-  }
-
-  if (!user) {
-    return null
   }
 
   if (generating) {
