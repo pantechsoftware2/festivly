@@ -16,6 +16,35 @@ export default function AuthCallback() {
         if (error) throw error
 
         if (data.session) {
+          const user = data.session.user
+          const pendingIndustry = typeof window !== 'undefined' 
+            ? sessionStorage.getItem('pending_industry') 
+            : null
+
+          // Update or create user profile with industry if provided
+          if (pendingIndustry && user?.id) {
+            try {
+              await supabase
+                .from('profiles')
+                .upsert({
+                  id: user.id,
+                  email: user.email,
+                  industry_type: pendingIndustry,
+                }, {
+                  onConflict: 'id'
+                })
+              
+              // Clear pending industry from storage
+              if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('pending_industry')
+              }
+              console.log('✅ Industry saved for user:', user.id)
+            } catch (profileError: any) {
+              console.warn('⚠️ Could not save industry to profile:', profileError.message)
+              // Don't throw - continue with redirect
+            }
+          }
+
           router.push('/')
         } else {
           router.push('/login')

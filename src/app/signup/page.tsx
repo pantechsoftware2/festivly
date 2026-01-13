@@ -299,7 +299,24 @@ function SignUpContent() {
           </div>
 
           <Button
-            onClick={signInWithGoogle}
+            onClick={async () => {
+              if (!industryType) {
+                setError('Please select your business industry before signing in with Google')
+                return
+              }
+              try {
+                setLoading(true)
+                setError(null)
+                // Store industry in sessionStorage for after Google Sign-In callback
+                if (typeof window !== 'undefined') {
+                  sessionStorage.setItem('pending_industry', industryType)
+                }
+                await signInWithGoogle()
+              } catch (err: any) {
+                setError(err?.message ?? 'Failed to sign in with Google')
+                setLoading(false)
+              }
+            }}
             variant="outline"
             className="w-full border-gray-300 text-black hover:bg-gray-50 font-semibold py-2 flex items-center justify-center gap-2 text-sm sm:text-base"
             disabled={loading}

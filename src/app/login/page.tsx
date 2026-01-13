@@ -9,9 +9,19 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
+const INDUSTRY_OPTIONS = [
+  'Education',
+  'Real Estate',
+  'Tech & Startup',
+  'Manufacturing',
+  'Retail & Fashion',
+  'Food & Cafe'
+]
+
 function SignInContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [industryType, setIndustryType] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -58,10 +68,19 @@ function SignInContent() {
   }
 
   const handleGoogleSignIn = async () => {
+    if (!industryType) {
+      setError('Please select your business industry')
+      return
+    }
+
     setLoading(true)
     setError(null)
 
     try {
+      // Store industry in sessionStorage for after Google Sign-In callback
+      if (typeof window !== 'undefined') {
+        sessionStorage.setItem('pending_industry', industryType)
+      }
       await signInWithGoogle()
       // After Google Sign-In, redirect to home which will trigger redirect to editor if prompt exists
     } catch (err: any) {
@@ -81,7 +100,7 @@ function SignInContent() {
             Welcome Back
           </h1>
           <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
-            Sign in to your Fastivly account
+            Sign in to your Festivly account
           </p>
 
           {success && (
@@ -140,6 +159,26 @@ function SignInContent() {
               </a>
             </div>
           </form>
+
+          <div className="mb-4 sm:mb-6">
+            <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+              Your Business Category * (for Google Sign-In)
+            </label>
+            <select
+              value={industryType || ''}
+              onChange={(e) => setIndustryType(e.target.value || null)}
+              className="w-full px-3 sm:px-4 py-2 sm:py-2 bg-gray-50 border border-gray-300 rounded-lg text-black text-sm sm:text-base placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={loading}
+              required
+            >
+              <option value="">-- Select Industry --</option>
+              {INDUSTRY_OPTIONS.map((industry) => (
+                <option key={industry} value={industry}>
+                  {industry}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <div className="relative mb-4 sm:mb-6">
             <div className="absolute inset-0 flex items-center">
