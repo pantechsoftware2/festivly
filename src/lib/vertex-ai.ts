@@ -316,54 +316,67 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     
     console.log('📦 Request body:', JSON.stringify(requestBody, null, 2))
     
-    const response = await fetch(endpoint, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken.token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    })
-    
-    console.log(`📡 Response status: ${response.status} ${response.statusText}`)
-    
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('❌ Vertex AI API error response:', errorText)
-      throw new Error(`Vertex AI API error (${response.status}): ${errorText}`)
-    }
-    
-    const data = await response.json()
-    console.log('📦 Response data structure:', JSON.stringify(data, null, 2))
-    
-    // Extract base64 images from response
-    const images: string[] = []
-    
-    if (data.predictions && Array.isArray(data.predictions)) {
-      console.log(`🖼️  Found ${data.predictions.length} predictions`)
-      for (let i = 0; i < data.predictions.length; i++) {
-        const prediction = data.predictions[i]
-        if (prediction.bytesBase64Encoded) {
-          console.log(`✅ Extracted image ${i + 1} (${prediction.bytesBase64Encoded.length} chars)`)
-          // Add data URI prefix for PNG
-          images.push(`data:image/png;base64,${prediction.bytesBase64Encoded}`)
-        } else {
-          console.warn(`⚠️ Prediction ${i + 1} missing bytesBase64Encoded field`)
-        }
+    // Create an abort controller with 60-second timeout
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => {
+      controller.abort()
+    }, 60000) // 60 seconds for image generation
+
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+        signal: controller.signal,
+      })
+      
+      clearTimeout(timeoutId)
+      
+      console.log(`📡 Response status: ${response.status} ${response.statusText}`)
+      
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ Vertex AI API error response:', errorText)
+        throw new Error(`Vertex AI API error (${response.status}): ${errorText}`)
       }
-    } else {
-      console.error('❌ Response missing predictions array')
-      console.log('Response keys:', Object.keys(data))
+      
+      const data = await response.json()
+      console.log('📦 Response data structure:', JSON.stringify(data, null, 2))
+      
+      // Extract base64 images from response
+      const images: string[] = []
+      
+      if (data.predictions && Array.isArray(data.predictions)) {
+        console.log(`🖼️  Found ${data.predictions.length} predictions`)
+        for (let i = 0; i < data.predictions.length; i++) {
+          const prediction = data.predictions[i]
+          if (prediction.bytesBase64Encoded) {
+            console.log(`✅ Extracted image ${i + 1} (${prediction.bytesBase64Encoded.length} chars)`)
+            // Add data URI prefix for PNG
+            images.push(`data:image/png;base64,${prediction.bytesBase64Encoded}`)
+          } else {
+            console.warn(`⚠️ Prediction ${i + 1} missing bytesBase64Encoded field`)
+          }
+        }
+      } else {
+        console.error('❌ Response missing predictions array')
+        console.log('Response keys:', Object.keys(data))
+      }
+      
+      if (images.length === 0) {
+        console.error('❌ No images extracted from Vertex AI response')
+        console.log('⚠️ Falling back to placeholder image')
+        return [createPlaceholderImage(options.prompt)]
+      }
+      
+      console.log(`✅ Successfully generated ${images.length} image(s)`)
+      return images
+    } finally {
+      clearTimeout(timeoutId)
     }
-    
-    if (images.length === 0) {
-      console.error('❌ No images extracted from Vertex AI response')
-      console.log('⚠️ Falling back to placeholder image')
-      return [createPlaceholderImage(options.prompt)]
-    }
-    
-    console.log(`✅ Successfully generated ${images.length} image(s)`)
-    return images
     
   } catch (error: any) {
     console.error('❌ Error in generateImages:', error)
@@ -375,6 +388,13 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       details: error?.details,
       stack: error?.stack?.split('\n').slice(0, 3).join('\n'),
     })
+
+    // Handle timeout errors
+    if (error?.name === 'AbortError') {
+      throw new Error(
+        'Image generation timed out (60 seconds). The AI service may be slow or unreachable. Please try again.'
+      )
+    }
 
     // Provide specific error message for quota issues
     if (error?.status === 429 || error?.code === 429) {

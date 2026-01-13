@@ -3,9 +3,11 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
-import { useToast } from '@/lib/toast-context'
+import { Header } from '@/components/header'
+import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
 import { createClient } from '@/lib/supabase'
 
 interface Project {
@@ -13,247 +15,179 @@ interface Project {
   title: string
   description?: string
   prompt?: string
-  headline?: string
-  subtitle?: string
-  thumbnail_url?: string
   image_urls?: string[]
-  canvas_json?: any
+  thumbnail_url?: string
   created_at: string
-  updated_at: string
 }
 
 export default function ProjectsPage() {
-  const { user } = useAuth()
-  const { addToast } = useToast()
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
   const [deleting, setDeleting] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
-    if (!user) {
+    if (!authLoading && !user) {
+      router.push('/login')
       return
     }
-    fetchProjects()
-  }, [user])
+    if (user) {
+      fetchProjects()
+    }
+  }, [user, authLoading, router])
 
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      
-      // Get the session token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        throw new Error('No active session. Please sign in again.')
+
+      const { data, error } = await supabase
+        .from('projects')
+        .select('*')
+        .eq('user_id', user?.id)
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('Error loading projects:', error)
+        throw error
       }
 
-      const token = session.access_token
-      console.log('📁 Fetching projects with token:', token.substring(0, 20) + '...')
-      
-      const response = await fetch('/api/projects', {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        console.error('❌ Projects fetch error:', {
-          status: response.status,
-          error: data.error,
-        })
-        throw new Error(data.error || 'Failed to load projects')
-      }
-
-      console.log(`✅ Loaded ${data.projects?.length || 0} projects`)
-      setProjects(data.projects || [])
+      setProjects(data || [])
     } catch (error: any) {
-      console.error('❌ Error loading projects:', error)
-      addToast(
-        `Failed to load projects: ${error.message}`,
-        'error'
-      )
+      console.error('Failed to load projects:', error)
     } finally {
       setLoading(false)
     }
   }
 
-  const handleDelete = async (projectId: string, projectTitle: string) => {
-    if (!confirm(`Delete "${projectTitle}"? This cannot be undone.`)) {
+  const handleDeleteProject = async (projectId: string) => {
+    if (!confirm('Are you sure? This cannot be undone.')) {
       return
     }
 
+    setDeleting(projectId)
     try {
-      setDeleting(projectId)
-      
-      // Get the session token from Supabase
-      const { data: { session } } = await supabase.auth.getSession()
-      
-      if (!session) {
-        throw new Error('No active session. Please sign in again.')
-      }
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', projectId)
+        .eq('user_id', user?.id)
 
-      const token = session.access_token
+      if (error) throw error
 
-      const response = await fetch(`/api/projects/${projectId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to delete project')
-      }
-
-      setProjects((prev) => prev.filter((p) => p.id !== projectId))
-      addToast(`Project "${projectTitle}" deleted successfully`, 'success')
+      setProjects(projects.filter(p => p.id !== projectId))
+      alert('✅ Project deleted')
     } catch (error: any) {
-      console.error('Error deleting project:', error)
-      addToast(
-        `Failed to delete project: ${error.message}`,
-        'error'
-      )
+      alert(`Error: ${error.message}`)
     } finally {
       setDeleting(null)
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-  }
-
-  if (!user) {
+  if (authLoading || loading) {
     return (
-      <div className="min-h-screen bg-black p-6 flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-3xl font-bold text-white mb-4">Sign in Required</h1>
-          <p className="text-gray-400 mb-6">
-            Please sign in to view your projects
-          </p>
-          <Link
-            href="/login"
-            className="inline-block bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700"
-          >
-            Go to Login
-          </Link>
+      <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
+        <Header />
+        <div className="pt-32 flex items-center justify-center">
+          <div className="text-white">Loading...</div>
         </div>
-      </div>
+      </main>
     )
   }
 
   return (
-    <div className="min-h-screen bg-black p-3 sm:p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6 sm:mb-8">
-          <Link
-            href="/editor"
-            className="text-blue-400 hover:text-blue-300 text-xs sm:text-sm mb-3 sm:mb-4 block"
-          >
-            ← Back to Editor
-          </Link>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white mb-1 sm:mb-2">My Projects</h1>
-          <p className="text-white/60 text-xs sm:text-sm md:text-base">
-            Manage and remix your saved designs
-          </p>
-        </div>
+    <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
+      <Header />
 
-        {loading ? (
-          <div className="text-center py-12 sm:py-16">
-            <div className="text-gray-400 text-sm sm:text-base">Loading projects...</div>
-          </div>
-        ) : projects.length === 0 ? (
-          <div className="text-center py-12 sm:py-16">
-            <div className="text-gray-400 mb-4 text-sm sm:text-base">No projects yet</div>
-            <Link
-              href="/editor"
-              className="inline-block bg-blue-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-blue-700 text-xs sm:text-sm font-medium"
+      <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-12 flex items-center justify-between">
+            <div>
+              <h1 className="text-4xl font-bold text-white mb-2">📁 My Projects</h1>
+              <p className="text-purple-200/70">
+                {projects.length} {projects.length === 1 ? 'project' : 'projects'} saved
+              </p>
+            </div>
+            <Button
+              onClick={() => router.push('/home')}
+              className="bg-purple-600 hover:bg-purple-700"
             >
-              Create Your First Project
-            </Link>
+              + Generate New
+            </Button>
           </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            {projects.map((project) => {
-              // Get the thumbnail - prefer thumbnail_url, then first image from image_urls or canvas_json
-              let thumbnailUrl = project.thumbnail_url
-              if (!thumbnailUrl && project.image_urls && project.image_urls.length > 0) {
-                thumbnailUrl = project.image_urls[0]
-              }
-              if (!thumbnailUrl && project.canvas_json?.image_urls && project.canvas_json.image_urls.length > 0) {
-                thumbnailUrl = project.canvas_json.image_urls[0]
-              }
-              
-              // Get prompt from either prompt field or canvas_json
-              const projectPrompt = project.prompt || project.canvas_json?.prompt || project.description
-              
-              return (
-              <div
-                key={project.id}
-                className="bg-gray-900 rounded-lg overflow-hidden hover:ring-2 hover:ring-blue-500 transition-all"
+
+          {/* Projects Grid */}
+          {projects.length === 0 ? (
+            <Card className="bg-slate-800/50 border-purple-500/30 p-12 text-center">
+              <p className="text-purple-200/70 text-lg mb-6">
+                No saved projects yet. Generate some images to get started!
+              </p>
+              <Button
+                onClick={() => router.push('/home')}
+                className="bg-purple-600 hover:bg-purple-700"
               >
-                {thumbnailUrl && (
-                  <img
-                    src={thumbnailUrl}
-                    alt={project.title}
-                    className="w-full h-32 sm:h-40 md:h-48 object-cover"
-                  />
-                )}
-                <div className="p-3 sm:p-4">
-                  <h3 className="text-base sm:text-lg font-semibold text-white mb-2 truncate">
-                    {project.title}
-                  </h3>
-                  {project.description && !project.prompt && (
-                    <p className="text-xs sm:text-sm text-gray-400 mb-2 sm:mb-3 line-clamp-2">
+                Generate Images
+              </Button>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <Card
+                  key={project.id}
+                  className="bg-slate-800/50 border-purple-500/30 overflow-hidden hover:border-purple-500/60 transition-all"
+                >
+                  {/* Thumbnail */}
+                  <div className="aspect-video bg-slate-900 relative group">
+                    {project.thumbnail_url || (project.image_urls && project.image_urls[0]) ? (
+                      <img
+                        src={project.thumbnail_url || (project.image_urls && project.image_urls[0])}
+                        alt={project.title}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-purple-200/40">
+                        No image
+                      </div>
+                    )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100 gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => router.push(`/projects/${project.id}`)}
+                        className="bg-blue-600 hover:bg-blue-700"
+                      >
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => handleDeleteProject(project.id)}
+                        disabled={deleting === project.id}
+                        className="bg-red-600 hover:bg-red-700"
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <h3 className="text-white font-semibold truncate mb-2">
+                      {project.title}
+                    </h3>
+                    <p className="text-purple-200/60 text-xs mb-3">
                       {project.description}
                     </p>
-                  )}
-                  {projectPrompt && (
-                    <p className="text-xs text-gray-500 mb-2 line-clamp-1">
-                      📝 Prompt: {projectPrompt}
+                    <p className="text-purple-200/50 text-xs">
+                      {new Date(project.created_at).toLocaleDateString()}
                     </p>
-                  )}
-                  <div className="text-xs text-gray-500 mb-3 sm:mb-4">
-                    Updated: {formatDate(project.updated_at)}
                   </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => {
-                        localStorage.setItem('remix_project_id', project.id)
-                        window.location.href = '/editor'
-                      }}
-                      className="flex-1 bg-blue-600 text-white px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm hover:bg-blue-700 transition-colors font-medium"
-                    >
-                      🎨 Remix
-                    </button>
-                    <button
-                      onClick={() => handleDelete(project.id, project.title)}
-                      disabled={deleting === project.id}
-                      className="flex-1 bg-red-600/20 text-red-400 px-2 sm:px-3 py-1 sm:py-2 rounded text-xs sm:text-sm hover:bg-red-600/30 transition-colors disabled:opacity-50 font-medium"
-                    >
-                      {deleting === project.id ? '...' : '🗑️'}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )
-            })}
-          </div>
-        )}
-      </div>
-    </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+    </main>
   )
 }

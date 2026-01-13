@@ -34,16 +34,20 @@ export function Header() {
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 sm:gap-3 ">
           <Image
-            src="/vizly.png"
-            alt="Vizly Logo"
+            src="/festivly.png"
+            alt="Festivly Logo"
             width={40}
             height={40}
             className="w-9 h-9 sm:w-10 sm:h-10 rounded-lg object-cover"
             priority
+            unoptimized
           />
-          <span className="text-white font-bold text-base sm:text-xl hidden sm:inline">
-            Vizly
-          </span>
+         <span className="font-bold text-base sm:text-xl hidden sm:inline">
+  <span className="text-[#FF9933]">Fes</span>
+  <span className="text-white">ti</span>
+  <span className="text-[#1A73E8]">vly</span>
+</span>
+
         </Link>
 
 

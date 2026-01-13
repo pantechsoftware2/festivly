@@ -2,13 +2,23 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Suspense } from 'react'
+import { createClient } from '@/lib/supabase'
+
+const INDUSTRY_OPTIONS = [
+  'Education',
+  'Real Estate',
+  'Tech & Startup',
+  'Manufacturing',
+  'Retail & Fashion',
+  'Food & Cafe'
+]
 
 export default function SignUp() {
   return (
@@ -21,8 +31,12 @@ export default function SignUp() {
 function SignUpContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [industryType, setIndustryType] = useState<string | null>(null)
+  const [logoFile, setLogoFile] = useState<File | null>(null)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -34,6 +48,31 @@ function SignUpContent() {
   }
   
   const { signUpWithEmail, signInWithGoogle } = useAuth()
+  const supabase = createClient()
+
+  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file')
+        return
+      }
+      // Validate file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Logo file must be less than 5MB')
+        return
+      }
+      setLogoFile(file)
+      setError(null)
+      // Create preview
+      const reader = new FileReader()
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string)
+      }
+      reader.readAsDataURL(file)
+    }
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -48,20 +87,95 @@ function SignUpContent() {
       return
     }
 
+    if (!industryType) {
+      setError('Please select your business industry')
+      return
+    }
+
     try {
       setLoading(true)
       setError(null)
-      await signUpWithEmail(email, password)
-      // After signup, redirect to editor with preserved prompt
+      
+      // Sign up user
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email,
+        password
+      })
+
+      if (signUpError) throw signUpError
+      if (!authData.user) throw new Error('User creation failed')
+
+      const userId = authData.user.id
+
+      // Upload logo if provided
+      let logoUrl: string | null = null
+      if (logoFile) {
+        try {
+          // Use signup API endpoint (uses service role key, bypasses RLS)
+          const formData = new FormData()
+          formData.append('logo', logoFile)
+          formData.append('userId', userId)
+
+          const response = await fetch('/api/signup/upload-logo', {
+            method: 'POST',
+            body: formData,
+          })
+
+          if (!response.ok) {
+            const errorData = await response.json()
+            console.warn('⚠️  Logo upload warning:', errorData.error)
+            // Don't throw - continue with signup
+          } else {
+            const uploadResult = await response.json()
+            logoUrl = uploadResult.logoUrl
+            console.log('✅ Logo uploaded successfully:', logoUrl)
+          }
+        } catch (logoError: any) {
+          console.warn('⚠️  Logo upload failed, continuing signup:', logoError.message)
+          // Don't throw - continue with signup even if logo upload fails
+        }
+      }
+
+      // Update user profile with industry and logo
+      // Update or insert user profile with industry and logo
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email: email,
+          industry_type: industryType,
+          brand_logo_url: logoUrl,
+        }, {
+          onConflict: 'id'
+        })
+
+      if (profileError) {
+        console.error('❌ Profile update error:', profileError)
+        throw new Error(profileError.message || 'Failed to save profile')
+      }
+
+      console.log('✅ Account created with industry:', industryType, 'Logo:', logoUrl ? 'Uploaded' : 'Not provided')
+
+      // After signup, redirect to dashboard
       if (prompt) {
-        // Clear the saved prompt from localStorage
         localStorage.removeItem('pending_prompt')
         router.push(`/editor?prompt=${encodeURIComponent(prompt)}`)
       } else {
         router.push('/dashboard')
       }
     } catch (err: any) {
-      setError(err?.message ?? 'Signup failed')
+      const message = err?.message ?? 'Signup failed'
+      
+      // Check if it's a schema/table error
+      if (message.includes('could not find the table') || message.includes('profiles')) {
+        setError('Database setup required. Please check documentation and run: setup-profiles-table.sql')
+      } else if (message.includes('RLS')) {
+        setError('Storage access error. Please check Supabase storage RLS settings.')
+      } else {
+        setError(message)
+      }
+      
+      console.error('Signup error:', err)
     } finally {
       setLoading(false)
     }
@@ -108,6 +222,51 @@ function SignUpContent() {
                 disabled={loading}
                 required
               />
+            </div>
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                Your Business Category *
+              </label>
+              <select
+                value={industryType || ''}
+                onChange={(e) => setIndustryType(e.target.value || null)}
+                className="w-full px-3 sm:px-4 py-2 sm:py-2 bg-gray-50 border border-gray-300 rounded-lg text-black text-sm sm:text-base placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+                required
+              >
+                <option value="">-- Select Industry --</option>
+                {INDUSTRY_OPTIONS.map((industry) => (
+                  <option key={industry} value={industry}>
+                    {industry}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                Upload Your Logo (Optional)
+              </label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handleLogoSelect}
+                className="hidden"
+                disabled={loading}
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full px-3 sm:px-4 py-2 sm:py-2 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-gray-700 text-sm sm:text-base hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={loading}
+              >
+                {logoFile ? `✓ Logo selected: ${logoFile.name}` : '📷 Choose Logo (PNG, JPG)'}
+              </button>
+              {logoPreview && (
+                <div className="mt-2 sm:mt-3 flex justify-center">
+                  <img src={logoPreview} alt="Logo preview" className="h-16 sm:h-20 object-contain" />
+                </div>
+              )}
             </div>
             <Button 
               type="submit" 

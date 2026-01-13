@@ -27,10 +27,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Vizly - AI Image Editor",
-  description: "Create stunning designs with AI-powered image generation and editing",
+  title: "Festivly - Festival Post Generator",
+  description: "Create stunning festival posts with AI-powered image generation for your brand",
   icons: {
-    icon: "/vizly1.jpeg",
+    icon: "/festivly.png",
   },
 };
 

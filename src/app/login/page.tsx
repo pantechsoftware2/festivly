@@ -81,7 +81,7 @@ function SignInContent() {
             Welcome Back
           </h1>
           <p className="text-gray-600 mb-4 sm:mb-6 text-sm sm:text-base">
-            Sign in to your Vizly account
+            Sign in to your Fastivly account
           </p>
 
           {success && (

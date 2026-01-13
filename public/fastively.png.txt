@@ -1,0 +1,2 @@
+SVG_PLACEHOLDER - Fastively Logo
+This is a placeholder. Replace with actual fastively.png file in public folder.
