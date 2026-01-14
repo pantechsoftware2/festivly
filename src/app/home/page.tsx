@@ -151,6 +151,8 @@ export default function EditorPage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </main>
   )
 }

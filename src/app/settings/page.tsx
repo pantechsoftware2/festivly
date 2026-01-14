@@ -6,31 +6,58 @@ import { Header } from '@/components/header'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase'
+
+const INDUSTRY_OPTIONS = [
+  'Education',
+  'Real Estate',
+  'Tech & Startup',
+  'Manufacturing',
+  'Retail & Fashion',
+  'Food & Cafe'
+]
 
 interface BrandSettings {
-  brand_name: string
-  brand_colors: string[]
-  generation_style: string
-  output_format: string
+  brand_logo_url: string | null
+  industry_type: string
 }
 
 export default function SettingsPage() {
   const { user, loading } = useAuth()
   const router = useRouter()
   const [saving, setSaving] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [settings, setSettings] = useState<BrandSettings>({
-    brand_name: '',
-    brand_colors: ['#000000', '#FFFFFF', '#6366F1'],
-    generation_style: 'photorealistic',
-    output_format: 'square',
+    brand_logo_url: null,
+    industry_type: 'Education',
   })
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login')
+    } else if (!loading && user) {
+      // Load user profile with brand settings
+      const loadProfile = async () => {
+        try {
+          const response = await fetch(`/api/profiles/${user.id}`)
+          if (response.ok) {
+            const profile = await response.json()
+            setSettings({
+              brand_logo_url: profile.brand_logo_url || null,
+              industry_type: profile.industry_type || 'Education',
+            })
+            if (profile.brand_logo_url) {
+              setLogoPreview(profile.brand_logo_url)
+            }
+          }
+        } catch (error) {
+          console.error('Failed to load profile:', error)
+        }
+      }
+      loadProfile()
     }
   }, [user, loading, router])
 
@@ -49,19 +76,116 @@ export default function SettingsPage() {
     return null
   }
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file')
+      return
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      alert('File size must be less than 5MB')
+      return
+    }
+
+    try {
+      setUploading(true)
+      const supabase = createClient()
+      
+      // Get auth token
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session?.access_token) {
+        throw new Error('Authentication required. Please sign in again.')
+      }
+
+      const formData = new FormData()
+      formData.append('logo', file)
+
+      const response = await fetch('/api/auth/upload-logo', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Upload failed')
+      }
+
+      const result = await response.json()
+      setSettings(prev => ({
+        ...prev,
+        brand_logo_url: result.logoUrl,
+      }))
+      setLogoPreview(result.logoUrl)
+      alert('Logo uploaded successfully!')
+    } catch (error) {
+      console.error('Upload error:', error)
+      alert('Failed to upload logo. Please try again.')
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const handleSave = async () => {
     try {
       setSaving(true)
-      // Save settings to localStorage for now (no database yet)
-      localStorage.setItem('brandSettings', JSON.stringify(settings))
       
-      // Show success message
+      if (!user?.id) {
+        throw new Error('User not found')
+      }
+
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          brand_logo_url: settings.brand_logo_url || null,
+          industry_type: settings.industry_type,
+        })
+        .match({ id: user.id })
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+
       alert('Settings saved successfully!')
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to save settings:', error)
-      alert('Failed to save settings. Please try again.')
+      alert(error.message || 'Failed to save settings. Please try again.')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const updateIndustryType = async (industry: string) => {
+    try {
+      updateSetting('industry_type', industry)
+      
+      if (!user?.id) {
+        throw new Error('User not found')
+      }
+
+      const supabase = createClient()
+
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          industry_type: industry,
+        })
+        .match({ id: user.id })
+
+      if (error) {
+        console.error('Supabase error:', error)
+        throw error
+      }
+    } catch (error: any) {
+      console.error('Failed to update industry type:', error)
     }
   }
 
@@ -88,108 +212,54 @@ export default function SettingsPage() {
             <h2 className="text-2xl font-bold text-white mb-6">Brand Profile</h2>
             
             <div className="space-y-6">
-              {/* Brand Name */}
+              {/* Brand Logo */}
               <div>
                 <label className="block text-sm font-semibold text-purple-200 mb-2">
-                  Brand Name
+                  Brand Logo
                 </label>
-                <Input
-                  type="text"
-                  placeholder="e.g., Gold & Co"
-                  value={settings.brand_name}
-                  onChange={(e) => updateSetting('brand_name', e.target.value)}
-                  className="w-full bg-slate-900/50 border-purple-500/20 text-white placeholder:text-gray-500"
+                {logoPreview && (
+                  <div className="mb-4">
+                    <img 
+                      src={logoPreview} 
+                      alt="Brand logo preview" 
+                      className="h-24 w-24 object-contain rounded-lg border border-purple-500/30 p-2"
+                    />
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleLogoUpload}
+                  disabled={uploading}
+                  className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-purple-600 file:text-white hover:file:bg-purple-700 disabled:opacity-50"
                 />
-                <p className="text-xs text-purple-200/50 mt-1">Used in generated headlines and descriptions</p>
+                <p className="text-xs text-purple-200/50 mt-1">PNG or JPG, max 5MB. Will appear as watermark on generated images.</p>
               </div>
 
-              {/* Brand Colors */}
+              {/* Industry Type */}
               <div>
-                <label className="block text-sm font-semibold text-purple-200 mb-3">
-                  Brand Colors
+                <label className="block text-sm font-semibold text-purple-200 mb-2">
+                  Industry Type
                 </label>
-                <div className="grid grid-cols-3 gap-4">
-                  {settings.brand_colors.map((color, idx) => (
-                    <div key={idx} className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        value={color}
-                        onChange={(e) => {
-                          const newColors = [...settings.brand_colors]
-                          newColors[idx] = e.target.value
-                          updateSetting('brand_colors', newColors)
-                        }}
-                        className="w-12 h-12 rounded cursor-pointer"
-                      />
-                      <Input
-                        type="text"
-                        value={color}
-                        onChange={(e) => {
-                          const newColors = [...settings.brand_colors]
-                          newColors[idx] = e.target.value
-                          updateSetting('brand_colors', newColors)
-                        }}
-                        className="flex-1 bg-slate-900/50 border-purple-500/20 text-white text-sm"
-                      />
-                    </div>
-                  ))}
-                </div>
-                <p className="text-xs text-purple-200/50 mt-2">Primary, secondary, and accent colors</p>
-              </div>
-            </div>
-          </Card>
-
-          {/* Generation Preferences */}
-          <Card className="bg-slate-800/50 border-purple-500/30 p-8 mb-6">
-            <h2 className="text-2xl font-bold text-white mb-6">Generation Preferences</h2>
-            
-            <div className="space-y-6">
-              {/* Generation Style */}
-              <div>
-                <label className="block text-sm font-semibold text-purple-200 mb-3">
-                  Generation Style
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['photorealistic', 'illustration', 'minimalist', 'art-deco'].map((style) => (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                  {INDUSTRY_OPTIONS.map((industry) => (
                     <button
-                      key={style}
-                      onClick={() => updateSetting('generation_style', style)}
-                      className={`p-3 rounded-lg border-2 transition-all capitalize ${
-                        settings.generation_style === style
-                          ? 'border-purple-500 bg-purple-500/20 text-white'
-                          : 'border-purple-500/20 bg-slate-900/30 text-purple-200 hover:border-purple-500/40'
-                      }`}
+                      key={industry}
+                      onClick={() => updateIndustryType(industry)}
+                      className={`py-2 px-4 rounded-lg text-sm font-medium transition-all ${
+                        settings.industry_type === industry
+                          ? 'bg-purple-600 text-white border-purple-500'
+                          : 'bg-slate-700/50 text-purple-200 border-slate-600 hover:border-purple-500/50'
+                      } border`}
                     >
-                      {style.replace('-', ' ')}
+                      {industry}
                     </button>
                   ))}
                 </div>
-              </div>
-
-              {/* Output Format */}
-              <div>
-                <label className="block text-sm font-semibold text-purple-200 mb-3">
-                  Default Output Format
-                </label>
-                <div className="grid grid-cols-2 gap-3">
-                  {['square', 'landscape', 'portrait', 'instagram-story'].map((format) => (
-                    <button
-                      key={format}
-                      onClick={() => updateSetting('output_format', format)}
-                      className={`p-3 rounded-lg border-2 transition-all capitalize ${
-                        settings.output_format === format
-                          ? 'border-purple-500 bg-purple-500/20 text-white'
-                          : 'border-purple-500/20 bg-slate-900/30 text-purple-200 hover:border-purple-500/40'
-                      }`}
-                    >
-                      {format.replace('-', ' ')}
-                    </button>
-                  ))}
-                </div>
+                <p className="text-xs text-purple-200/50 mt-2">Select your business industry for better AI generation</p>
               </div>
             </div>
           </Card>
-
           {/* Account */}
           <Card className="bg-slate-800/50 border-purple-500/30 p-8 mb-6">
             <h2 className="text-2xl font-bold text-white mb-4">Account Information</h2>
@@ -215,7 +285,7 @@ export default function SettingsPage() {
               disabled={saving}
               className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 disabled:opacity-50"
             >
-              {saving ? 'Saving...' : 'Save Settings'}
+              {saving ? 'Saving...' : 'Save Logo'}
             </Button>
             <Button
               onClick={() => router.push('/dashboard')}
