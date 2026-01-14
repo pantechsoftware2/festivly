@@ -218,7 +218,6 @@ export default function ResultPage() {
         
         img.onerror = () => {
           console.error('❌ Failed to load base image:', imageUrl)
-          console.log('   Image might be a placeholder (generation failed)')
           console.log('   Attempting with fetch fallback...')
           
           // Fallback: try to fetch the image and convert to blob
@@ -234,11 +233,22 @@ export default function ResultPage() {
             .then(blob => {
               console.log(`   Blob size: ${blob.size} bytes`)
               
-              // If blob is very small (< 5KB), it's likely a placeholder
+              // If blob is very small (< 5KB), it's a placeholder SVG from failed generation
               if (blob.size < 5000) {
-                console.warn('   ⚠️  Image appears to be a placeholder (< 5KB)')
-                console.warn('   This means image generation likely failed.')
-                console.warn('   Check: GOOGLE_SERVICE_ACCOUNT_KEY in Vercel environment variables')
+                console.error('❌ IMAGE GENERATION FAILED!')
+                console.error('   Image is a placeholder (1.14KB SVG) - generation did not complete')
+                console.error('   Cause: GOOGLE_SERVICE_ACCOUNT_KEY missing in Vercel environment variables')
+                console.error('')
+                console.error('   ✅ To fix:')
+                console.error('   1. Go to Vercel Dashboard → Project Settings → Environment Variables')
+                console.error('   2. Add: GOOGLE_CLOUD_PROJECT_ID=ai-image-editor-483505')
+                console.error('   3. Add: GOOGLE_CLOUD_REGION=us-central1')
+                console.error('   4. Add: GOOGLE_SERVICE_ACCOUNT_KEY=(copy full JSON from .env)')
+                console.error('   5. Redeploy project')
+                
+                // Show placeholder without overlay
+                setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
+                return
               }
               
               const blobUrl = URL.createObjectURL(blob)
@@ -406,6 +416,26 @@ export default function ResultPage() {
 
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
+          {/* Warning banner if images are placeholders */}
+          {result?.images && result.images.length > 0 && (
+            <div className="mb-8 p-4 bg-red-900/30 border border-red-500/50 rounded-lg">
+              <p className="text-red-200 font-semibold mb-2">⚠️ Image Generation Issue Detected</p>
+              <p className="text-red-100/80 text-sm mb-3">
+                Images appear to be placeholders (1.14KB). This means Vertex AI image generation is not working in your Vercel deployment.
+              </p>
+              <div className="text-red-100/70 text-xs space-y-1">
+                <p><strong>✅ To fix:</strong></p>
+                <ol className="list-decimal list-inside ml-2">
+                  <li>Go to Vercel Dashboard → Select your project</li>
+                  <li>Settings → Environment Variables</li>
+                  <li>Add <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> (full JSON from .env)</li>
+                  <li>Also add: <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_CLOUD_PROJECT_ID</code> and <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_CLOUD_REGION</code></li>
+                  <li>Redeploy project</li>
+                </ol>
+              </div>
+            </div>
+          )}
+
           {/* Header */}
           <div className="mb-12 text-center">
             <h1 className="text-4xl font-bold text-white mb-2">
@@ -495,7 +525,15 @@ export default function ResultPage() {
                 </div>
                 <div className="p-4">
                   <p className="text-white text-sm">Image {index + 1}</p>
-                  <p className="text-purple-200/60 text-xs">{userLogo ? 'Logo included' : 'Ready to save'}</p>
+                  <p className="text-purple-200/60 text-xs">
+                    {imagesWithLogo[image.id] 
+                      ? (image.url.includes('placeholder') || imagesWithLogo[image.id].startsWith('data:') 
+                        ? '⚠️ Placeholder - generation failed' 
+                        : '✅ Logo included')
+                      : (image.url.includes('placeholder') 
+                        ? '⚠️ Placeholder - generation failed' 
+                        : '📸 Ready to save')}
+                  </p>
                 </div>
               </Card>
             ))}
