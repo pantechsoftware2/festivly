@@ -38,10 +38,8 @@ export default function AuthCallback() {
               if (typeof window !== 'undefined') {
                 sessionStorage.removeItem('pending_industry')
               }
-              console.log('✅ Industry saved for user:', user.id)
             } catch (profileError: any) {
-              console.warn('⚠️ Could not save industry to profile:', profileError.message)
-              // Don't throw - continue with redirect
+              // Could not save industry to profile - continue anyway
             }
           }
 
@@ -50,7 +48,6 @@ export default function AuthCallback() {
           router.push('/login')
         }
       } catch (error) {
-        console.error('Auth callback error:', error)
         router.push('/login')
       }
     }

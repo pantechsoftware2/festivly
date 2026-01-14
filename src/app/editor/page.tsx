@@ -9,6 +9,7 @@ import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase'
+import { addLogoToImage } from '@/lib/canvas-export'
 
 
 function EditorPageContent() {
@@ -26,17 +27,34 @@ function EditorPageContent() {
   const [isEditingSubtitle, setIsEditingSubtitle] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
+  const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null)
 
 
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  // Log error state for debugging (keeps the `error` state usage benign and non-intrusive)
-  useEffect(() => {
-    if (error) console.error('Editor error:', error)
-  }, [error])
 
+  // Fetch brand logo when user is loaded
+  useEffect(() => {
+    if (user?.id) {
+      const fetchBrandLogo = async () => {
+        try {
+          const response = await fetch(`/api/profiles/${user.id}`)
+          if (response.ok) {
+            const profile = await response.json()
+            if (profile.brand_logo_url) {
+              setBrandLogoUrl(profile.brand_logo_url)
+              console.log('✅ Brand logo loaded:', profile.brand_logo_url)
+            }
+          }
+        } catch (err) {
+          console.log('ℹ️ Could not load brand logo:', err)
+        }
+      }
+      fetchBrandLogo()
+    }
+  }, [user?.id])
 
   // Auto-generate when prompt is available
   useEffect(() => {
@@ -154,12 +172,6 @@ function EditorPageContent() {
 
       const token = session.access_token
 
-      console.log('💾 Saving project with:', {
-        userId: user.id,
-        title: editHeadline || 'Untitled Project',
-        imagesCount: result.images.length,
-      })
-
       const response = await fetch('/api/projects/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,7 +199,6 @@ function EditorPageContent() {
       }
 
       if (data.success && data.projectId) {
-        console.log('✅ Project saved successfully:', data.projectId)
         // Show success and redirect
         setTimeout(() => {
           router.push('/projects')
@@ -199,7 +210,6 @@ function EditorPageContent() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const errorMsg = (err as any)?.message || 'Failed to save project'
       setError(errorMsg)
-      console.error('❌ Save error:', err)
     } finally {
       setIsSaving(false)
     }
@@ -223,10 +233,22 @@ function EditorPageContent() {
     const handleDownload = async () => {
       setIsDownloading(true)
       try {
-        const imageSource = image.url || image.base64
+        let imageSource = image.url || image.base64
         
         // If it's a base64 data URL
         if (imageSource.startsWith('data:')) {
+          // Add logo if available
+          if (brandLogoUrl) {
+            try {
+              console.log('🏷️ Adding logo to image...')
+              imageSource = await addLogoToImage(imageSource, brandLogoUrl, 'bottom-right', 120)
+              console.log('✅ Logo added successfully')
+            } catch (logoError) {
+              console.warn('⚠️ Could not add logo, downloading without:', logoError)
+              // Continue with original image
+            }
+          }
+          
           const link = document.createElement('a')
           link.href = imageSource
           link.download = `campaign-${Date.now()}.png`
@@ -243,8 +265,38 @@ function EditorPageContent() {
         
         const blob = await response.blob()
         const blobUrl = URL.createObjectURL(blob)
+        
+        // Add logo if available
+        let finalImageUrl = blobUrl
+        if (brandLogoUrl) {
+          try {
+            console.log('🏷️ Adding logo to image...')
+            // Convert blob to data URL for logo addition
+            const reader = new FileReader()
+            await new Promise((resolve) => {
+              reader.onload = () => {
+                const dataUrl = reader.result as string
+                addLogoToImage(dataUrl, brandLogoUrl, 'bottom-right', 120)
+                  .then((logoDataUrl) => {
+                    finalImageUrl = logoDataUrl
+                    console.log('✅ Logo added successfully')
+                    resolve(null)
+                  })
+                  .catch((err) => {
+                    console.warn('⚠️ Could not add logo:', err)
+                    resolve(null)
+                  })
+              }
+              reader.readAsDataURL(blob)
+            })
+          } catch (logoError) {
+            console.warn('⚠️ Logo processing failed:', logoError)
+            // Continue with original image
+          }
+        }
+        
         const link = document.createElement('a')
-        link.href = blobUrl
+        link.href = finalImageUrl
         link.download = `campaign-${Date.now()}.png`
         document.body.appendChild(link)
         link.click()
@@ -254,7 +306,7 @@ function EditorPageContent() {
         URL.revokeObjectURL(blobUrl)
         setIsDownloading(false)
       } catch (err) {
-        console.error('Download failed:', err)
+        console.error('Download error:', err)
         alert('Failed to download image. Please try again.')
         setIsDownloading(false)
       }

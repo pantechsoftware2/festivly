@@ -111,67 +111,35 @@ function SignUpContent() {
       let logoUrl: string | null = null
       if (logoFile) {
         try {
-          console.log('📤 Uploading logo file:', logoFile.name, logoFile.size, 'bytes')
-          console.log('   File type:', logoFile.type)
-          console.log('   User ID:', userId)
-          
           // Use signup API endpoint (uses service role key, bypasses RLS)
           const formData = new FormData()
           formData.append('logo', logoFile)
           formData.append('userId', userId)
 
-          console.log('📡 Sending upload request to /api/signup/upload-logo...')
           const response = await fetch('/api/signup/upload-logo', {
             method: 'POST',
             body: formData,
           })
 
-          console.log('📡 Logo upload response status:', response.status)
-          console.log('📡 Response headers:', response.headers.get('content-type'))
-          
           if (!response.ok) {
             const errorData = await response.json()
-            console.error('❌ LOGO UPLOAD FAILED!')
-            console.error('   Status:', response.status)
-            console.error('   Error:', errorData.error)
-            console.error('   Full response:', JSON.stringify(errorData, null, 2))
             setError(`Logo upload failed: ${errorData.error}. Continuing without logo.`)
             // Don't throw - continue with signup
           } else {
             const uploadResult = await response.json()
             logoUrl = uploadResult.logoUrl
-            console.log('✅ Logo uploaded successfully!')
-            console.log('   Logo URL:', logoUrl)
-            console.log('   Logo URL type:', typeof logoUrl)
-            console.log('   Logo URL length:', logoUrl ? logoUrl.length : 0)
-            console.log('   Full response:', JSON.stringify(uploadResult, null, 2))
-            
-            // Verify logoUrl was captured
-            if (!logoUrl) {
-              console.warn('⚠️ WARNING: logoUrl is empty/null despite 200 response!')
-            }
           }
         } catch (logoError: any) {
-          console.error('❌ LOGO UPLOAD EXCEPTION!')
-          console.error('   Error:', logoError.message)
-          console.error('   Stack:', logoError.stack)
           setError(`Logo upload error: ${logoError.message}. Continuing without logo.`)
           // Don't throw - continue with signup even if logo upload fails
         }
       }
 
       // Update user profile with industry and logo
-      console.log('💾 Saving profile:')
-      console.log('   User ID:', userId)
-      console.log('   Email:', email)
-      console.log('   Industry:', industryType)
-      console.log('   Logo URL:', logoUrl || '(no logo)')
-      
       let profileData: any = null
       let profileError: any = null
 
       // Try INSERT first (for new profiles)
-      console.log('📝 Attempting INSERT...')
       const { error: insertError, data: insertData } = await supabase
         .from('profiles')
         .insert({
@@ -183,11 +151,8 @@ function SignUpContent() {
         .select()
 
       if (insertError) {
-        console.warn('⚠️  INSERT failed:', insertError.code, insertError.message)
-        
         // If conflict (23505 = unique constraint), try UPDATE
         if (insertError.code === '23505') {
-          console.log('📝 Unique conflict detected, attempting UPDATE...')
           const { error: updateError, data: updateData } = await supabase
             .from('profiles')
             .update({
@@ -199,29 +164,21 @@ function SignUpContent() {
             .select()
           
           if (updateError) {
-            console.error('❌ UPDATE also failed:', updateError)
             profileError = updateError
           } else {
-            console.log('✅ Profile updated successfully')
             profileData = updateData?.[0] || null
           }
         } else {
-          console.error('❌ INSERT failed with error:', insertError)
           profileError = insertError
         }
       } else {
-        console.log('✅ Profile inserted successfully')
         profileData = insertData?.[0] || null
       }
 
-      // Log what was saved
+      // Save profile
       if (profileError) {
-        console.error('❌ Profile save error:', profileError.message)
         throw new Error(profileError.message || 'Failed to save profile')
       }
-
-      console.log('✅ Account created with industry:', industryType, 'Logo:', logoUrl ? '✅ Uploaded' : '⚠️ Not provided')
-      console.log('📦 Profile data saved:', JSON.stringify(profileData, null, 2))
 
       // After signup, redirect to dashboard
       if (prompt) {

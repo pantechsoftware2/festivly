@@ -61,18 +61,32 @@ export default function ResultPage() {
         .then(data => {
           // Check if data is empty object
           if (!data || Object.keys(data).length === 0) {
+            setUserLogo(null)
             return
           }
           
-          if (data?.brand_logo_url) {
-            const trimmedUrl = data.brand_logo_url
+          if (data?.brand_logo_url && typeof data.brand_logo_url === 'string' && data.brand_logo_url.trim().length > 5) {
+            let trimmedUrl = data.brand_logo_url
               .trim()
-              .replace(/["']+$/, '')
-              .replace(/^["']+/, '')
+              .replace(/["'`]+$/g, '')
+              .replace(/^["'`]+/g, '')
               .replace(/\\/g, '')
-            setUserLogo(trimmedUrl)
+              .replace(/:\d+$/g, '')
+              .replace(/\s+/g, '')
+            
+            // Add protocol if missing
+            if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
+              trimmedUrl = 'https://' + trimmedUrl
+            }
+            
+            // Try to validate as a proper URL
+            try {
+              new URL(trimmedUrl)
+              setUserLogo(trimmedUrl)
+            } catch (e) {
+              setUserLogo(null)
+            }
           } else {
-            // Don't use default logo - only show uploaded logos
             setUserLogo(null)
           }
         })
@@ -85,7 +99,10 @@ export default function ResultPage() {
 
   // Apply logo overlay to images (positioned and scaled appropriately)
   useEffect(() => {
-    if (!result?.images) return
+    if (!result?.images) {
+      setImagesWithLogo({})
+      return
+    }
 
     // Clear previous overlays whenever position, logo, or test mode changes
     setImagesWithLogo({})
@@ -95,13 +112,31 @@ export default function ResultPage() {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (!ctx) {
-          console.error('Failed to get canvas context')
           return
         }
 
         // Load the generated image
         const img = new Image()
         img.crossOrigin = 'anonymous'
+        img.referrerPolicy = 'no-referrer'
+        
+        // Helper function to convert canvas to best available format
+        const canvasToDataUrl = (canvasElement: HTMLCanvasElement) => {
+          // Try WebP first (better compression), fallback to PNG
+          try {
+            const testCanvas = document.createElement('canvas')
+            testCanvas.width = 1
+            testCanvas.height = 1
+            const testDataUrl = testCanvas.toDataURL('image/webp')
+            
+            if (testDataUrl.includes('image/webp')) {
+              return canvasElement.toDataURL('image/webp', 0.95)
+            }
+          } catch (e) {
+            // WebP not supported
+          }
+          return canvasElement.toDataURL('image/png')
+        }
         
         const drawLogoAndFinalize = (canvasElement: HTMLCanvasElement, ctxElement: CanvasRenderingContext2D) => {
           // Calculate logo position for both test and normal modes
@@ -112,7 +147,6 @@ export default function ResultPage() {
 
           // If test overlay is enabled, draw red box AND try to load logo inside it
           if (testOverlay) {
-            console.log('🧪 Test mode: drawing logo area box')
             // Draw red box background
             ctxElement.fillStyle = 'rgba(220, 38, 38, 0.3)'
             ctxElement.fillRect(logoX, logoY, logoSize, logoSize)
@@ -121,26 +155,29 @@ export default function ResultPage() {
             if (logoUrl) {
               const testLogo = new Image()
               testLogo.crossOrigin = 'anonymous'
+              testLogo.referrerPolicy = 'no-referrer'
               testLogo.onload = () => {
                 try {
-                  ctxElement.drawImage(testLogo, logoX, logoY, logoSize, logoSize)
+                  if (testLogo.width > 0 && testLogo.height > 0) {
+                    ctxElement.drawImage(testLogo, logoX, logoY, logoSize, logoSize)
+                  }
                 } catch (e) {
                   // Silent error
                 }
                 try {
-                  const dataUrl = canvasElement.toDataURL('image/png')
+                  const dataUrl = canvasToDataUrl(canvasElement)
                   setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
                 } catch (e) {
                   // Silent error
                 }
               }
               testLogo.onerror = () => {
-                const dataUrl = canvasElement.toDataURL('image/png')
+                const dataUrl = canvasToDataUrl(canvasElement)
                 setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
               }
               testLogo.src = logoUrl
             } else {
-              const dataUrl = canvasElement.toDataURL('image/png')
+              const dataUrl = canvasToDataUrl(canvasElement)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             }
             return
@@ -149,17 +186,21 @@ export default function ResultPage() {
           // Load and draw the logo (draw AFTER the main image to avoid race conditions)
           const logo = new Image()
           logo.crossOrigin = 'anonymous'
+          logo.referrerPolicy = 'no-referrer'
 
           // When logo loads successfully, draw it on top
           logo.onload = () => {
             try {
-              ctxElement.drawImage(logo, logoX, logoY, logoSize, logoSize)
+              // Ensure we have valid dimensions before drawing
+              if (logo.width > 0 && logo.height > 0) {
+                ctxElement.drawImage(logo, logoX, logoY, logoSize, logoSize)
+              }
             } catch (e) {
               // Silent error
             }
 
             try {
-              const dataUrl = canvasElement.toDataURL('image/png')
+              const dataUrl = canvasToDataUrl(canvasElement)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
               // Silent error
@@ -169,20 +210,20 @@ export default function ResultPage() {
           // If logo fails to load, just finalize without it
           logo.onerror = () => {
             try {
-              const dataUrl = canvasElement.toDataURL('image/png')
+              const dataUrl = canvasToDataUrl(canvasElement)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
               // Silent error
             }
           }
 
-          // Start loading logo (if provided)
-          if (logoUrl) {
+          // Start loading logo (if provided and valid)
+          if (logoUrl && logoUrl.length > 10 && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'))) {
             logo.src = logoUrl
           } else {
-            // No logo URL provided - just finalize without drawing anything
+            // No logo provided - still save canvas (without logo overlay)
             try {
-              const dataUrl = canvasElement.toDataURL('image/png')
+              const dataUrl = canvasToDataUrl(canvasElement)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
               // Silent error
@@ -190,6 +231,19 @@ export default function ResultPage() {
           }
         }
         
+        // Handle main image load success
+        img.onload = () => {
+          canvas.width = img.width
+          canvas.height = img.height
+
+          // Draw the base image
+          ctx.drawImage(img, 0, 0)
+
+          // Apply logo overlay
+          drawLogoAndFinalize(canvas, ctx)
+        }
+        
+        // Handle main image load failure
         img.onerror = () => {
           // Fallback: try to fetch the image and convert to blob
           fetch(imageUrl)
@@ -226,17 +280,6 @@ export default function ResultPage() {
             })
         }
         
-        img.onload = () => {
-          console.log('✅ Base image loaded:', img.width, 'x', img.height)
-          canvas.width = img.width
-          canvas.height = img.height
-
-          // Draw the base image
-          ctx.drawImage(img, 0, 0)
-
-          // Apply logo overlay
-          drawLogoAndFinalize(canvas, ctx)
-        }
         img.src = imageUrl
       } catch (err) {
         // Silent error handling
@@ -319,7 +362,6 @@ export default function ResultPage() {
       }
 
       const data = await response.json()
-      console.log('✅ Project saved:', data.projectId)
       
       // Small delay to ensure database is updated before navigation
       await new Promise(resolve => setTimeout(resolve, 500))
@@ -425,7 +467,6 @@ export default function ResultPage() {
                       className="w-full h-full object-cover"
                       crossOrigin="anonymous"
                       onError={(e) => {
-                        console.error('Image with logo failed to load')
                         e.currentTarget.src = image.url
                       }}
                     />

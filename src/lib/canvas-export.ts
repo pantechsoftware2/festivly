@@ -1,6 +1,6 @@
 /**
  * Canvas Export Utilities
- * Handles exporting canvas to PNG/JPG with high resolution
+ * Handles exporting canvas to PNG/JPG with high resolution and logo watermark
  */
 
 export interface ExportOptions {
@@ -8,6 +8,100 @@ export interface ExportOptions {
   quality?: number // 0-100 for JPG
   scale?: number // multiplier for resolution (default 1 = 1080x1350)
   filename?: string
+  logoUrl?: string // Brand logo URL to add as watermark in corner
+}
+
+/**
+ * Add logo to canvas image (as watermark in corner)
+ */
+export async function addLogoToImage(
+  imageDataUrl: string,
+  logoUrl: string,
+  position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' = 'bottom-right',
+  logoSize: number = 80 // size in pixels
+): Promise<string> {
+  return new Promise((resolve, reject) => {
+    try {
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      
+      if (!ctx) {
+        reject(new Error('Failed to get canvas context'))
+        return
+      }
+
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      img.onload = () => {
+        // Set canvas size to match image
+        canvas.width = img.width
+        canvas.height = img.height
+        
+        // Draw main image
+        ctx.drawImage(img, 0, 0)
+        
+        // Load and draw logo
+        const logo = new Image()
+        logo.crossOrigin = 'anonymous'
+        
+        logo.onload = () => {
+          const padding = 20
+          let x = padding
+          let y = padding
+          
+          // Calculate logo dimensions maintaining aspect ratio
+          const logoWidth = logoSize
+          const logoHeight = (logo.height / logo.width) * logoSize
+          
+          // Position calculation
+          switch (position) {
+            case 'top-left':
+              x = padding
+              y = padding
+              break
+            case 'top-right':
+              x = canvas.width - logoWidth - padding
+              y = padding
+              break
+            case 'bottom-left':
+              x = padding
+              y = canvas.height - logoHeight - padding
+              break
+            case 'bottom-right':
+              x = canvas.width - logoWidth - padding
+              y = canvas.height - logoHeight - padding
+              break
+          }
+          
+          // Add semi-transparent white background behind logo
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
+          ctx.fillRect(x - 5, y - 5, logoWidth + 10, logoHeight + 10)
+          
+          // Draw logo
+          ctx.drawImage(logo, x, y, logoWidth, logoHeight)
+          
+          // Convert back to data URL
+          const resultDataUrl = canvas.toDataURL('image/png')
+          resolve(resultDataUrl)
+        }
+        
+        logo.onerror = () => {
+          reject(new Error('Failed to load logo image'))
+        }
+        
+        logo.src = logoUrl
+      }
+      
+      img.onerror = () => {
+        reject(new Error('Failed to load main image'))
+      }
+      
+      img.src = imageDataUrl
+    } catch (error) {
+      reject(error)
+    }
+  })
 }
 
 /**
@@ -22,18 +116,25 @@ export async function exportCanvasToImage(
       format = 'png',
       quality = 95,
       scale = 2, // Default 2x for high-res (2160x2700)
-      filename = `design-${Date.now()}`
+      filename = `design-${Date.now()}`,
+      logoUrl
     } = options
 
     console.log(`🖼️ Exporting canvas as ${format.toUpperCase()} (${scale}x scale)...`)
 
     // Get canvas as data URL
-    const dataUrl = canvas.toDataURL({
+    let dataUrl = canvas.toDataURL({
       format,
       quality: quality / 100,
       multiplier: scale,
       enableRetinaScaling: true,
     })
+
+    // Add logo if provided
+    if (logoUrl) {
+      console.log(`📌 Adding logo watermark...`)
+      dataUrl = await addLogoToImage(dataUrl, logoUrl, 'bottom-right', 120)
+    }
 
     // Convert data URL to blob
     const response = await fetch(dataUrl)

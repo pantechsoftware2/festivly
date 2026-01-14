@@ -28,17 +28,14 @@ export default function ProjectsPage() {
     if (!user?.id) return
     
     try {
-      console.log('📁 Fetching projects for user:', user.id)
       const response = await fetch(`/api/projects?userId=${user.id}`)
       if (!response.ok) {
         const data = await response.json()
         throw new Error(data.error || 'Failed to fetch projects')
       }
       const data = await response.json()
-      console.log('✅ Projects loaded:', data.projects?.length || 0)
       setProjects(data.projects || [])
     } catch (err: any) {
-      console.error('Failed to fetch projects:', err.message)
       setProjects([])
     } finally {
       setLoading(false)
@@ -80,7 +77,6 @@ export default function ProjectsPage() {
   // Refetch projects when page regains focus (handles save redirects)
   useEffect(() => {
     const handleFocus = () => {
-      console.log('📄 Page regained focus, refetching projects...')
       fetchProjects()
     }
 
@@ -141,7 +137,9 @@ export default function ProjectsPage() {
                         <Button
                           onClick={(e) => {
                             e.stopPropagation()
-                            setViewingImage(project.thumbnail_url)
+                            if (project.thumbnail_url) {
+                              setViewingImage(project.thumbnail_url)
+                            }
                           }}
                           className="bg-purple-600 hover:bg-purple-700"
                         >

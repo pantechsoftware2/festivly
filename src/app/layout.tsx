@@ -7,7 +7,7 @@ import { checkGoogleCloudSetup } from "@/lib/google-cloud-check";
 
 // Check Google Cloud setup on server startup
 if (process.env.NODE_ENV !== 'production') {
-  checkGoogleCloudSetup().catch(console.error)
+  checkGoogleCloudSetup().catch(() => {})
 }
 
 const geistSans = Geist({
