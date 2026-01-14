@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     
+    console.log('🔷 Uploading logo:', { fileName, fileSize: buffer.length, contentType: file.type })
+    
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('brand-logos')
       .upload(fileName, buffer, {
@@ -62,40 +64,53 @@ export async function POST(request: NextRequest) {
       })
 
     if (uploadError) {
+      console.error('❌ Upload error:', uploadError)
       return NextResponse.json(
         { error: `Failed to upload logo: ${uploadError.message}` },
         { status: 500 }
       )
     }
 
+    console.log('✅ Upload successful:', { uploadData })
+
     // Get public URL
     const { data: publicUrl } = supabase.storage
       .from('brand-logos')
-      .getPublicUrl(uploadData.path)
+      .getPublicUrl(uploadData?.path || fileName)
+
+    console.log('🔗 Public URL response:', { publicUrl })
+
+    // Extract the actual URL from the response
+    let finalUrl = publicUrl?.publicUrl || ''
+    
+    if (!finalUrl) {
+      console.error('❌ No public URL returned')
+      return NextResponse.json(
+        { error: 'Failed to generate public URL' },
+        { status: 500 }
+      )
+    }
 
     // Ensure URL has https:// protocol
-    let finalUrl = publicUrl.publicUrl
     if (!finalUrl.startsWith('http')) {
       finalUrl = 'https://' + finalUrl
     }
 
+    console.log('✅ Final logo URL:', finalUrl)
+
     return NextResponse.json({
       success: true,
       logoUrl: finalUrl,
-      path: uploadData.path,
+      path: uploadData?.path || fileName,
       bucket: 'brand-logos'
     })
   } catch (error: any) {
+    console.error('❌ Upload endpoint error:', error)
     return NextResponse.json(
       { error: error.message || 'Failed to process upload' },
       { status: 500 }
     )
   }
 }
-
-
-
-
-
 
 // ndvjhsbjhdsnds nvdfmv dfnvdfv dfnvfdv fdnmvdf vkjdfvkfdbvkjefjnvdfsbv,

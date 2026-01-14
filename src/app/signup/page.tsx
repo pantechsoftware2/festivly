@@ -116,6 +116,8 @@ function SignUpContent() {
           formData.append('logo', logoFile)
           formData.append('userId', userId)
 
+          console.log('📤 Uploading logo for user:', userId, 'File:', logoFile.name, 'Size:', logoFile.size)
+
           const response = await fetch('/api/signup/upload-logo', {
             method: 'POST',
             body: formData,
@@ -123,60 +125,46 @@ function SignUpContent() {
 
           if (!response.ok) {
             const errorData = await response.json()
-            setError(`Logo upload failed: ${errorData.error}. Continuing without logo.`)
+            console.error('❌ Logo upload failed:', errorData)
+            setError(`Logo upload failed: ${errorData.error}. Continuing with signup.`)
             // Don't throw - continue with signup
           } else {
             const uploadResult = await response.json()
             logoUrl = uploadResult.logoUrl
+            console.log('✅ Logo uploaded successfully:', logoUrl)
           }
         } catch (logoError: any) {
-          setError(`Logo upload error: ${logoError.message}. Continuing without logo.`)
+          console.error('❌ Logo upload error:', logoError.message)
+          setError(`Logo upload error: ${logoError.message}. Continuing with signup.`)
           // Don't throw - continue with signup even if logo upload fails
         }
       }
 
-      // Update user profile with industry and logo
-      let profileData: any = null
-      let profileError: any = null
-
-      // Try INSERT first (for new profiles)
-      const { error: insertError, data: insertData } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          email: email,
-          industry_type: industryType,
-          brand_logo_url: logoUrl,
+      // Update user profile with industry and logo using API endpoint
+      try {
+        console.log('💾 Saving profile with logo URL:', logoUrl)
+        const profileResponse = await fetch('/api/profiles', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            id: userId,
+            email: email,
+            industry_type: industryType,
+            brand_logo_url: logoUrl,
+          }),
         })
-        .select()
 
-      if (insertError) {
-        // If conflict (23505 = unique constraint), try UPDATE
-        if (insertError.code === '23505') {
-          const { error: updateError, data: updateData } = await supabase
-            .from('profiles')
-            .update({
-              email: email,
-              industry_type: industryType,
-              brand_logo_url: logoUrl,
-            })
-            .eq('id', userId)
-            .select()
-          
-          if (updateError) {
-            profileError = updateError
-          } else {
-            profileData = updateData?.[0] || null
-          }
-        } else {
-          profileError = insertError
+        if (!profileResponse.ok) {
+          const profileError = await profileResponse.json()
+          console.error('❌ Profile save error:', profileError)
+          throw new Error(profileError.error || 'Failed to save profile')
         }
-      } else {
-        profileData = insertData?.[0] || null
-      }
 
-      // Save profile
-      if (profileError) {
+        const profileResult = await profileResponse.json()
+        console.log('✅ Profile saved successfully:', profileResult)
+      } catch (profileError: any) {
         throw new Error(profileError.message || 'Failed to save profile')
       }
 
