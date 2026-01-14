@@ -79,16 +79,16 @@ export default function ResultPage() {
             console.log('✅ Logo URL loaded:', trimmedUrl)
             setUserLogo(trimmedUrl)
           } else {
-            console.log('❌ Custom logo not found, using default anonymous logo')
-            // Use default logo for all users
-            setUserLogo(DEFAULT_LOGO_URL)
+            console.log('ℹ️ No custom logo uploaded')
+            // Don't use default logo - only show uploaded logos
+            setUserLogo(null)
           }
         })
         .catch(err => console.error('Failed to fetch profile:', err))
     } else {
-      console.log('⚠️ No user ID available, using default anonymous logo')
-      // Use default logo for anonymous users
-      setUserLogo(DEFAULT_LOGO_URL)
+      console.log('ℹ️ No user ID available')
+      // Don't use default logo - only show logos for authenticated users with uploads
+      setUserLogo(null)
     }
   }, [user])
 
@@ -404,15 +404,8 @@ export default function ResultPage() {
             <div className="mb-8 p-4 bg-amber-900/20 border border-amber-600/40 rounded-lg">
               <p className="text-amber-100 font-semibold mb-2">⚠️ Image Generation Issue</p>
               <p className="text-amber-50/80 text-sm mb-2">
-                Some images appear to be placeholders. This usually means the Vertex AI service account credentials are not configured in your Vercel deployment.
+                Some images are placeholders. Add <code className="bg-amber-950/50 px-1">GOOGLE_SERVICE_ACCOUNT_KEY</code> to Vercel Environment Variables and redeploy.
               </p>
-              <div className="text-amber-50/70 text-xs space-y-1">
-                <p><strong>To fix this:</strong></p>
-                <ol className="list-decimal list-inside ml-2">
-                  <li>Add <code className="bg-amber-950/50 px-1">GOOGLE_SERVICE_ACCOUNT_KEY</code> to Vercel Environment Variables</li>
-                  <li>Redeploy your project</li>
-                </ol>
-              </div>
             </div>
           )}
 
@@ -506,13 +499,7 @@ export default function ResultPage() {
                 <div className="p-4">
                   <p className="text-white text-sm">Image {index + 1}</p>
                   <p className="text-purple-200/60 text-xs">
-                    {imagesWithLogo[image.id] 
-                      ? (image.url.includes('placeholder') || imagesWithLogo[image.id].startsWith('data:') 
-                        ? '⚠️ Placeholder - generation failed' 
-                        : '✅ Logo included')
-                      : (image.url.includes('placeholder') 
-                        ? '⚠️ Placeholder - generation failed' 
-                        : '📸 Ready to save')}
+                    {imagesWithLogo[image.id] ? '✅ Logo included' : '📸 Ready to save'}
                   </p>
                 </div>
               </Card>
