@@ -33,6 +33,9 @@ export default function ResultPage() {
   const [logoPosition, setLogoPosition] = useState<'left' | 'right'>('right') // user-controllable position for logo overlay
   const [testOverlay, setTestOverlay] = useState(false) // debug: draw red square for testing overlay
 
+  // Default anonymous logo URL for users without custom logo
+  const DEFAULT_LOGO_URL = 'https://adzndcsprxemlpgvcmsg.supabase.co/storage/v1/object/public/brand-logos/default-logo.png'
+
   // Fetch user logo and overlay it on images
   useEffect(() => {
     const stored = sessionStorage.getItem('generatedResult')
@@ -75,20 +78,16 @@ export default function ResultPage() {
             console.log('✅ Logo URL loaded:', data.brand_logo_url)
             setUserLogo(data.brand_logo_url)
           } else {
-            console.log('❌ LOGO MISSING! Expected brand_logo_url field')
-            console.log('Full profile data:', JSON.stringify(data, null, 2))
-            
-            // Try alternate field names
-            const logoUrl = data?.logo_url || data?.logoUrl || data?.brand_logo || null
-            if (logoUrl) {
-              console.log('⚠️ Found logo in alternate field:', logoUrl)
-              setUserLogo(logoUrl)
-            }
+            console.log('❌ Custom logo not found, using default anonymous logo')
+            // Use default logo for all users
+            setUserLogo(DEFAULT_LOGO_URL)
           }
         })
         .catch(err => console.error('Failed to fetch profile:', err))
     } else {
-      console.log('⚠️ No user ID available, skipping logo fetch')
+      console.log('⚠️ No user ID available, using default anonymous logo')
+      // Use default logo for anonymous users
+      setUserLogo(DEFAULT_LOGO_URL)
     }
   }, [user])
 
@@ -218,11 +217,29 @@ export default function ResultPage() {
         
         img.onerror = () => {
           console.error('❌ Failed to load base image:', imageUrl)
+          console.log('   Image might be a placeholder (generation failed)')
           console.log('   Attempting with fetch fallback...')
+          
           // Fallback: try to fetch the image and convert to blob
           fetch(imageUrl)
-            .then(res => res.blob())
+            .then(res => {
+              console.log(`   Fetch response: ${res.status} ${res.statusText}`)
+              console.log(`   Content-Type: ${res.headers.get('content-type')}`)
+              if (!res.ok) {
+                throw new Error(`HTTP ${res.status}`)
+              }
+              return res.blob()
+            })
             .then(blob => {
+              console.log(`   Blob size: ${blob.size} bytes`)
+              
+              // If blob is very small (< 5KB), it's likely a placeholder
+              if (blob.size < 5000) {
+                console.warn('   ⚠️  Image appears to be a placeholder (< 5KB)')
+                console.warn('   This means image generation likely failed.')
+                console.warn('   Check: GOOGLE_SERVICE_ACCOUNT_KEY in Vercel environment variables')
+              }
+              
               const blobUrl = URL.createObjectURL(blob)
               const fallbackImg = new Image()
               fallbackImg.onload = () => {
@@ -240,7 +257,8 @@ export default function ResultPage() {
               fallbackImg.src = blobUrl
             })
             .catch(e => {
-              console.error('Fallback fetch failed:', e)
+              console.error('Fallback fetch failed:', e.message)
+              console.error('   This could mean: storage file missing, CORS issue, or network error')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
             })
         }
