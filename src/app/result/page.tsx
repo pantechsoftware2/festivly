@@ -75,8 +75,12 @@ export default function ResultPage() {
           }
           
           if (data?.brand_logo_url) {
-            const trimmedUrl = data.brand_logo_url.trim().replace(/["']+$/, '')
-            console.log('✅ Logo URL loaded:', trimmedUrl)
+            const trimmedUrl = data.brand_logo_url
+              .trim()
+              .replace(/["']+$/, '')
+              .replace(/^["']+/, '')
+              .replace(/\\/g, '')
+            console.log('✅ Logo URL loaded and cleaned:', trimmedUrl)
             setUserLogo(trimmedUrl)
           } else {
             console.log('ℹ️ No custom logo uploaded')
@@ -191,7 +195,7 @@ export default function ResultPage() {
 
           // If logo fails to load, just finalize without it
           logo.onerror = () => {
-            console.warn('❌ Logo failed to load:', logoUrl)
+            console.warn('⚠️ Logo failed to load from URL:', logoUrl)
             try {
               const dataUrl = canvasElement.toDataURL('image/png')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
@@ -203,10 +207,11 @@ export default function ResultPage() {
           // Start loading logo (if provided)
           if (logoUrl) {
             console.log('📥 Starting logo load from:', logoUrl.substring(0, 60) + '...')
+            console.log('   Full URL:', logoUrl)
             logo.src = logoUrl
           } else {
             // No logo URL provided - just finalize without drawing anything
-            console.log('⚠️ No logo URL, using image without logo overlay')
+            console.log('ℹ️ No logo URL, using image without logo overlay')
             try {
               const dataUrl = canvasElement.toDataURL('image/png')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
