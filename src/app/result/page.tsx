@@ -51,26 +51,16 @@ export default function ResultPage() {
 
     // Fetch user's logo from profile (handle 404 gracefully)
     if (user?.id) {
-      console.log('👤 Fetching profile for user:', user.id)
       fetch(`/api/profiles/${user.id}`)
         .then(res => {
-          console.log('📡 Profile API response status:', res.status)
           if (!res.ok) {
-            // Profile not found or other non-OK response; do not surface as an error
-            console.warn(`Profile fetch returned ${res.status}; skipping logo overlay`)
             return null
           }
           return res.json()
         })
         .then(data => {
-          console.log('📦 Profile data received:', JSON.stringify(data, null, 2))
-          console.log('   Keys in response:', Object.keys(data || {}).join(', '))
-          console.log('   brand_logo_url value:', data?.brand_logo_url)
-          
           // Check if data is empty object
           if (!data || Object.keys(data).length === 0) {
-            console.warn('⚠️  Profile returned empty object - profile may not exist in database')
-            console.log('   This typically means the profile was never created during signup')
             return
           }
           
@@ -80,17 +70,14 @@ export default function ResultPage() {
               .replace(/["']+$/, '')
               .replace(/^["']+/, '')
               .replace(/\\/g, '')
-            console.log('✅ Logo URL loaded and cleaned:', trimmedUrl)
             setUserLogo(trimmedUrl)
           } else {
-            console.log('ℹ️ No custom logo uploaded')
             // Don't use default logo - only show uploaded logos
             setUserLogo(null)
           }
         })
-        .catch(err => console.error('Failed to fetch profile:', err))
+        .catch(err => {})
     } else {
-      console.log('ℹ️ No user ID available')
       // Don't use default logo - only show logos for authenticated users with uploads
       setUserLogo(null)
     }
@@ -105,11 +92,6 @@ export default function ResultPage() {
 
     const applyLogoOverlay = async (imageUrl: string, logoUrl: string | null, imageId: string, position: 'left' | 'right', eventName: string) => {
       try {
-        console.log('🎨 Applying overlay to image:', imageId)
-        console.log('   Image URL:', imageUrl.substring(0, 50) + '...')
-        console.log('   Logo URL:', logoUrl ? logoUrl.substring(0, 60) + '...' : '❌ None')
-        console.log('   Position:', position)
-        
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (!ctx) {
@@ -142,28 +124,24 @@ export default function ResultPage() {
               const testLogo = new Image()
               testLogo.crossOrigin = 'anonymous'
               testLogo.onload = () => {
-                console.log('   ✅ Test logo loaded, drawing...')
                 try {
                   ctxElement.drawImage(testLogo, logoX, logoY, logoSize, logoSize)
                 } catch (e) {
-                  console.error('Error drawing test logo:', e)
+                  // Silent error
                 }
                 try {
                   const dataUrl = canvasElement.toDataURL('image/png')
-                  console.log('📸 Test image saved, size:', dataUrl.length, 'bytes')
                   setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
                 } catch (e) {
-                  console.error('Error converting canvas to data URL:', e)
+                  // Silent error
                 }
               }
               testLogo.onerror = () => {
-                console.warn('   ❌ Test logo failed to load:', logoUrl)
                 const dataUrl = canvasElement.toDataURL('image/png')
                 setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
               }
               testLogo.src = logoUrl
             } else {
-              console.log('   ⚠️ No logo URL available')
               const dataUrl = canvasElement.toDataURL('image/png')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             }
@@ -176,55 +154,45 @@ export default function ResultPage() {
 
           // When logo loads successfully, draw it on top
           logo.onload = () => {
-            console.log('✅ Logo loaded successfully, drawing on image')
             try {
               ctxElement.drawImage(logo, logoX, logoY, logoSize, logoSize)
-              console.log(`   ✅ Logo drawn at position (${logoX}, ${logoY}) with size ${logoSize}px`)
             } catch (e) {
-              console.error('Error drawing logo image:', e)
+              // Silent error
             }
 
             try {
               const dataUrl = canvasElement.toDataURL('image/png')
-              console.log('   📸 Image saved with logo overlay, size:', dataUrl.length, 'bytes')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
-              console.error('Error converting canvas to data URL:', e)
+              // Silent error
             }
           }
 
           // If logo fails to load, just finalize without it
           logo.onerror = () => {
-            console.warn('⚠️ Logo failed to load from URL:', logoUrl)
             try {
               const dataUrl = canvasElement.toDataURL('image/png')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
-              console.error('Error converting canvas to data URL:', e)
+              // Silent error
             }
           }
 
           // Start loading logo (if provided)
           if (logoUrl) {
-            console.log('📥 Starting logo load from:', logoUrl.substring(0, 60) + '...')
-            console.log('   Full URL:', logoUrl)
             logo.src = logoUrl
           } else {
             // No logo URL provided - just finalize without drawing anything
-            console.log('ℹ️ No logo URL, using image without logo overlay')
             try {
               const dataUrl = canvasElement.toDataURL('image/png')
               setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
             } catch (e) {
-              console.error('Error converting canvas to data URL:', e)
+              // Silent error
             }
           }
         }
         
         img.onerror = () => {
-          console.error('❌ Failed to load base image:', imageUrl)
-          console.log('   Attempting with fetch fallback...')
-          
           // Fallback: try to fetch the image and convert to blob
           fetch(imageUrl)
             .then(res => {
@@ -236,7 +204,6 @@ export default function ResultPage() {
             .then(blob => {
               // If blob is very small (< 5KB), it's a placeholder SVG from failed generation
               if (blob.size < 5000) {
-                console.warn('⚠️ Image is a placeholder - generation may have failed')
                 // Show placeholder without overlay
                 setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
                 return
@@ -257,7 +224,6 @@ export default function ResultPage() {
               fallbackImg.src = blobUrl
             })
             .catch(e => {
-              console.warn('Image load failed:', e?.message)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
             })
         }
@@ -275,7 +241,7 @@ export default function ResultPage() {
         }
         img.src = imageUrl
       } catch (err) {
-        console.error('Failed to apply logo overlay:', err)
+        // Silent error handling
       }
     }
 
@@ -404,16 +370,6 @@ export default function ResultPage() {
 
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          {/* Warning banner - only show if we detect placeholder images */}
-          {result?.images && result.images.some(img => img.url.includes('data:image/svg')) && (
-            <div className="mb-8 p-4 bg-amber-900/20 border border-amber-600/40 rounded-lg">
-              <p className="text-amber-100 font-semibold mb-2">⚠️ Image Generation Issue</p>
-              <p className="text-amber-50/80 text-sm mb-2">
-                Some images are placeholders. Add <code className="bg-amber-950/50 px-1">GOOGLE_SERVICE_ACCOUNT_KEY</code> to Vercel Environment Variables and redeploy.
-              </p>
-            </div>
-          )}
-
           {/* Header */}
           <div className="mb-12 text-center">
             <h1 className="text-4xl font-bold text-white mb-2">
