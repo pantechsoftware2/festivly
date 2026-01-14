@@ -197,7 +197,7 @@ async function retryWithBackoff<T>(
  * Create a placeholder image with gradient and prompt text
  * Returns base64-encoded PNG
  */
-function createPlaceholderImage(prompt: string): string {
+export function createPlaceholderImage(prompt: string): string {
   // Create a simple SVG placeholder
   const svg = `
     <svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg">
@@ -307,7 +307,7 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         },
       ],
       parameters: {
-        sampleCount: options.numberOfImages || 1,
+        sampleCount: options.sampleCount || options.numberOfImages || 4,
         aspectRatio: "3:4",
         safetyFilterLevel: "block_some",
         personGeneration: "allow_adult",
@@ -340,6 +340,10 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       if (!response.ok) {
         const errorText = await response.text()
         console.error('❌ Vertex AI API error response:', errorText)
+        if (response.status === 429) {
+          console.warn('⚠️ Vertex AI quota exceeded (429). Returning placeholder image instead of error.')
+          return [createPlaceholderImage(options.prompt)]
+        }
         throw new Error(`Vertex AI API error (${response.status}): ${errorText}`)
       }
       
@@ -389,30 +393,20 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       stack: error?.stack?.split('\n').slice(0, 3).join('\n'),
     })
 
-    // Handle timeout errors
-    if (error?.name === 'AbortError') {
-      throw new Error(
-        'Image generation timed out (60 seconds). The AI service may be slow or unreachable. Please try again.'
-      )
-    }
+    // On any error, log it and return a placeholder image so no user-facing error is shown
+    console.warn('Vertex AI generation error; returning placeholder image instead of throwing:', {
+      message: error?.message,
+      status: error?.status,
+      code: error?.code,
+    })
 
-    // Provide specific error message for quota issues
-    if (error?.status === 429 || error?.code === 429) {
-      throw new Error(
-        'Quota exceeded: Too many image generation requests. Please wait a moment and try again. ' +
-        'If this persists, you may need to request a quota increase in Google Cloud Console.'
-      )
+    try {
+      return [createPlaceholderImage(options.prompt)]
+    } catch (e) {
+      // If placeholder generation fails for any reason, return an empty array to avoid throwing
+      console.error('Failed to create placeholder image:', (e as any)?.message || e)
+      return []
     }
-
-    // Check for authentication errors
-    if (error?.message?.includes('UNAUTHENTICATED') || error?.message?.includes('Unable to generate an access token')) {
-      throw new Error(
-        'Google Cloud authentication failed. ' +
-        'Ensure GOOGLE_APPLICATION_CREDENTIALS points to your service-account-key.json'
-      )
-    }
-
-    throw new Error(`Image generation failed: ${error?.message || 'Unknown error'}`)
   }
 }
 

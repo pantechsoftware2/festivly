@@ -125,36 +125,25 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
 export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
-    const authHeader = request.headers.get('Authorization')
-    if (!authHeader) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized' },
-        { status: 401 }
-      )
+    // Get user ID from query params or cookies
+    const userId = request.nextUrl.searchParams.get('userId')
+    
+    if (!userId) {
+      console.log('⚠️ No userId provided, returning empty projects')
+      return NextResponse.json({
+        success: true,
+        projects: [],
+      })
     }
 
-    const supabaseAnon = getSupabaseClient()
-
-    // Extract and verify the token using anon client (authentication)
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user }, error: authError } = await supabaseAnon.auth.getUser(token)
-
-    if (authError || !user) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid authorization' },
-        { status: 401 }
-      )
-    }
-
-    // Use admin client for query (bypasses RLS)
     const supabaseAdmin = getSupabaseAdminClient()
 
     // Fetch projects for the authenticated user
-    console.log('📁 Fetching projects for user:', user.id)
+    console.log('📁 Fetching projects for user:', userId)
     const { data: projects, error: projectError } = await supabaseAdmin
       .from('projects')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', userId)
       .order('updated_at', { ascending: false })
 
     if (projectError) {
@@ -162,7 +151,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       throw projectError
     }
 
-    console.log(`✅ Found ${projects?.length || 0} projects for user ${user.id}`)
+    console.log(`✅ Found ${projects?.length || 0} projects for user ${userId}`)
     if (projects && projects.length > 0) {
       console.log('📊 First project:', projects[0])
     }

@@ -49,7 +49,9 @@ export async function POST(request: NextRequest) {
 
     // Create a new project
     const projectId = uuidv4()
-    const { error: projectError } = await supabase
+    const now = new Date().toISOString()
+    
+    const { error: projectError, data: projectData } = await supabase
       .from('projects')
       .insert({
         id: projectId,
@@ -60,9 +62,10 @@ export async function POST(request: NextRequest) {
         image_urls: [imageUrl],
         storage_paths: [storagePath],
         thumbnail_url: imageUrl,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
+        created_at: now,
+        updated_at: now,
       })
+      .select()
 
     if (projectError) {
       console.error('Project creation error:', projectError)
@@ -83,12 +86,22 @@ export async function POST(request: NextRequest) {
         index: index,
       },
       tokens_used: 0,
-      created_at: new Date().toISOString(),
+      created_at: now,
     })
 
     return NextResponse.json({
       success: true,
       projectId: projectId,
+      project: {
+        id: projectId,
+        title: title,
+        description: `${eventName} - ${industry} industry`,
+        thumbnail_url: imageUrl,
+        image_urls: [imageUrl],
+        user_id: userId,
+        created_at: now,
+        updated_at: now,
+      },
       message: 'Project saved successfully',
     })
   } catch (error: any) {

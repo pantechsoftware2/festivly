@@ -21,7 +21,7 @@ export default function EditorPage() {
   const handleEventClick = async (eventId: string) => {
     // Check if user is authenticated
     if (!user) {
-      router.push('/login')
+      router.push('/signup')
       return
     }
 
