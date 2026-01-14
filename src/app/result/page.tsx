@@ -75,8 +75,9 @@ export default function ResultPage() {
           }
           
           if (data?.brand_logo_url) {
-            console.log('✅ Logo URL loaded:', data.brand_logo_url)
-            setUserLogo(data.brand_logo_url)
+            const trimmedUrl = data.brand_logo_url.trim().replace(/["']+$/, '')
+            console.log('✅ Logo URL loaded:', trimmedUrl)
+            setUserLogo(trimmedUrl)
           } else {
             console.log('❌ Custom logo not found, using default anonymous logo')
             // Use default logo for all users
@@ -355,6 +356,12 @@ export default function ResultPage() {
         throw new Error(data.error || 'Failed to save')
       }
 
+      const data = await response.json()
+      console.log('✅ Project saved:', data.projectId)
+      
+      // Small delay to ensure database is updated before navigation
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
       alert('✅ Image saved to My Projects!')
       router.push('/projects')
     } catch (err) {
@@ -454,6 +461,11 @@ export default function ResultPage() {
                       src={imagesWithLogo[image.id]}
                       alt={`Generated image ${index + 1} with logo`}
                       className="w-full h-full object-cover"
+                      crossOrigin="anonymous"
+                      onError={(e) => {
+                        console.error('Image with logo failed to load')
+                        e.currentTarget.src = image.url
+                      }}
                     />
                   ) : (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -461,6 +473,7 @@ export default function ResultPage() {
                       src={image.url}
                       alt={`Generated image ${index + 1}`}
                       className="w-full h-full object-cover"
+                      crossOrigin="anonymous"
                     />
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-end justify-center opacity-0 group-hover:opacity-100 p-4 gap-2 flex-col">

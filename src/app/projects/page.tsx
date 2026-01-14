@@ -22,33 +22,46 @@ export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
 
+  const fetchProjects = async () => {
+    if (!user?.id) return
+    
+    try {
+      console.log('📁 Fetching projects for user:', user.id)
+      const response = await fetch(`/api/projects?userId=${user.id}`)
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to fetch projects')
+      }
+      const data = await response.json()
+      console.log('✅ Projects loaded:', data.projects?.length || 0)
+      setProjects(data.projects || [])
+    } catch (err: any) {
+      console.error('Failed to fetch projects:', err.message)
+      setProjects([])
+    } finally {
+      setLoading(false)
+    }
+  }
+
   useEffect(() => {
     if (!user?.id) {
       router.push('/login')
       return
     }
 
-    const fetchProjects = async () => {
-      try {
-        console.log('📁 Fetching projects for user:', user.id)
-        const response = await fetch(`/api/projects?userId=${user.id}`)
-        if (!response.ok) {
-          const data = await response.json()
-          throw new Error(data.error || 'Failed to fetch projects')
-        }
-        const data = await response.json()
-        console.log('✅ Projects loaded:', data.projects?.length || 0)
-        setProjects(data.projects || [])
-      } catch (err: any) {
-        console.error('Failed to fetch projects:', err.message)
-        setProjects([])
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchProjects()
   }, [user, router])
+
+  // Refetch projects when page regains focus (handles save redirects)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('📄 Page regained focus, refetching projects...')
+      fetchProjects()
+    }
+
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
+  }, [user?.id])
 
   if (loading) {
     return (
