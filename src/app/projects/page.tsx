@@ -21,6 +21,8 @@ export default function ProjectsPage() {
   const { user } = useAuth()
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [viewingImage, setViewingImage] = useState<string | null>(null)
 
   const fetchProjects = async () => {
     if (!user?.id) return
@@ -51,6 +53,29 @@ export default function ProjectsPage() {
 
     fetchProjects()
   }, [user, router])
+
+  const handleDeleteProject = async (projectId: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (!confirm('Delete this project?')) return
+
+    setDeleting(projectId)
+    try {
+      const response = await fetch(`/api/projects/${projectId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+      if (!response.ok) {
+        throw new Error('Failed to delete project')
+      }
+
+      setProjects(projects.filter(p => p.id !== projectId))
+    } catch (err: any) {
+      alert(`Error: ${err.message}`)
+    } finally {
+      setDeleting(null)
+    }
+  }
 
   // Refetch projects when page regains focus (handles save redirects)
   useEffect(() => {
@@ -101,17 +126,28 @@ export default function ProjectsPage() {
               {projects.map((project) => (
                 <Card
                   key={project.id}
-                  className="bg-slate-800/50 border-purple-500/30 overflow-hidden cursor-pointer hover:border-purple-500/60 transition"
-                  onClick={() => router.push(`/projects/${project.id}`)}
+                  className="bg-slate-800/50 border-purple-500/30 overflow-hidden"
                 >
                   {project.thumbnail_url && (
-                    <div className="w-full h-48 bg-slate-900 overflow-hidden">
+                    <div className="w-full h-48 bg-slate-900 overflow-hidden relative group">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={project.thumbnail_url}
                         alt={project.title}
                         className="w-full h-full object-cover"
                       />
+                      {/* Hover overlay with View button */}
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <Button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setViewingImage(project.thumbnail_url)
+                          }}
+                          className="bg-purple-600 hover:bg-purple-700"
+                        >
+                          👁️ View
+                        </Button>
+                      </div>
                     </div>
                   )}
                   <div className="p-4">
@@ -119,9 +155,18 @@ export default function ProjectsPage() {
                     {project.description && (
                       <p className="text-purple-200/60 text-sm mb-3">{project.description}</p>
                     )}
-                    <p className="text-purple-200/50 text-xs">
+                    <p className="text-purple-200/50 text-xs mb-4">
                       Updated {new Date(project.updated_at).toLocaleDateString()}
                     </p>
+                    
+                    {/* Delete button */}
+                    <Button
+                      onClick={(e) => handleDeleteProject(project.id, e)}
+                      disabled={deleting === project.id}
+                      className="w-full bg-red-600 hover:bg-red-700"
+                    >
+                      {deleting === project.id ? '🗑️ Deleting...' : '🗑️ Delete'}
+                    </Button>
                   </div>
                 </Card>
               ))}
@@ -145,6 +190,32 @@ export default function ProjectsPage() {
           </div>
         </div>
       </section>
+
+      {/* Image Viewer Modal */}
+      {viewingImage && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={() => setViewingImage(null)}
+        >
+          <div
+            className="relative max-w-4xl w-full max-h-[90vh]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={viewingImage}
+              alt="Project image"
+              className="w-full h-full object-contain"
+            />
+            <button
+              onClick={() => setViewingImage(null)}
+              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

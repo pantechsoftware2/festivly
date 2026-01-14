@@ -110,8 +110,6 @@ export default function ResultPage() {
           const logoX = position === 'right' ? canvasElement.width - logoSize - margin : margin
           const logoY = canvasElement.height - logoSize - margin
 
-          console.log(`📏 Logo dimensions: ${logoSize}x${logoSize} at (${logoX}, ${logoY})`)
-
           // If test overlay is enabled, draw red box AND try to load logo inside it
           if (testOverlay) {
             console.log('🧪 Test mode: drawing logo area box')
