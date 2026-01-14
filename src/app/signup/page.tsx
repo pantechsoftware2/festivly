@@ -216,6 +216,7 @@ function SignUpContent() {
                 placeholder="you@example.com"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email"
                 className="bg-gray-50 border-gray-300 text-black placeholder-gray-400 text-sm sm:text-base"
                 disabled={loading}
                 required
@@ -230,6 +231,7 @@ function SignUpContent() {
                 placeholder="At least 6 characters"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="new-password"
                 className="bg-gray-50 border-gray-300 text-black placeholder-gray-400 text-sm sm:text-base"
                 disabled={loading}
                 required
