@@ -174,8 +174,22 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateI
         })
 
         console.log(`✅ Generated ${base64Images.length} images`)
+        
+        if (base64Images.length === 0) {
+          throw new Error('No images generated - API returned empty array')
+        }
+
+        // Verify each image is valid base64
+        base64Images.forEach((img, idx) => {
+          if (!img || img.length === 0) {
+            throw new Error(`Image ${idx} is empty or invalid`)
+          }
+          const sizeKB = (img.length / 1024).toFixed(2)
+          console.log(`  Image ${idx + 1}: ${sizeKB} KB`)
+        })
       } catch (genError: any) {
-        console.error('Image generation error:', genError?.message)
+        console.error('❌ Image generation error:', genError?.message)
+        console.error('   Stack:', genError?.stack)
         
         return NextResponse.json(
           {
@@ -192,6 +206,8 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateI
       const supabase = getSupabaseClient()
       const generatedImages: GeneratedImage[] = []
 
+      console.log(`\n📦 UPLOADING ${base64Images.length} IMAGES TO STORAGE`)
+
       for (let i = 0; i < base64Images.length; i++) {
         try {
           const base64 = base64Images[i]
@@ -202,22 +218,31 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateI
           // Convert base64 to buffer
           const buffer = Buffer.from(base64.split(',')[1] || base64, 'base64')
 
+          console.log(`   📤 Uploading image ${i + 1}/${base64Images.length}...`)
+          console.log(`      Path: ${fileName}`)
+          console.log(`      Size: ${buffer.length} bytes`)
+
           // Upload to Supabase Storage
-          const { error: uploadError } = await supabase.storage
+          const { error: uploadError, data: uploadData } = await supabase.storage
             .from('images')
             .upload(fileName, buffer, {
               contentType: 'image/jpeg',
+              upsert: false,
             })
 
           if (uploadError) {
-            console.error('Upload error:', uploadError)
+            console.error(`   ❌ Upload error for image ${i}:`, uploadError.message)
             continue
           }
+
+          console.log(`   ✅ Upload successful for image ${i}`)
 
           // Get public URL
           const { data: publicUrl } = supabase.storage
             .from('images')
             .getPublicUrl(fileName)
+
+          console.log(`      Public URL: ${publicUrl.publicUrl.substring(0, 80)}...`)
 
           generatedImages.push({
             id: imageId,
@@ -225,10 +250,9 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateI
             storagePath: fileName,
             createdAt: timestamp,
           })
-
-          console.log(`  ✅ Image ${i + 1} uploaded: ${fileName}`)
         } catch (err: any) {
-          console.error(`Error uploading image ${i}:`, err?.message)
+          console.error(`   ❌ Error uploading image ${i}:`, err?.message)
+          console.error(`      Stack: ${err?.stack}`)
         }
       }
 
