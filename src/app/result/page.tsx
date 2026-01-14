@@ -223,29 +223,15 @@ export default function ResultPage() {
           // Fallback: try to fetch the image and convert to blob
           fetch(imageUrl)
             .then(res => {
-              console.log(`   Fetch response: ${res.status} ${res.statusText}`)
-              console.log(`   Content-Type: ${res.headers.get('content-type')}`)
               if (!res.ok) {
                 throw new Error(`HTTP ${res.status}`)
               }
               return res.blob()
             })
             .then(blob => {
-              console.log(`   Blob size: ${blob.size} bytes`)
-              
               // If blob is very small (< 5KB), it's a placeholder SVG from failed generation
               if (blob.size < 5000) {
-                console.error('❌ IMAGE GENERATION FAILED!')
-                console.error('   Image is a placeholder (1.14KB SVG) - generation did not complete')
-                console.error('   Cause: GOOGLE_SERVICE_ACCOUNT_KEY missing in Vercel environment variables')
-                console.error('')
-                console.error('   ✅ To fix:')
-                console.error('   1. Go to Vercel Dashboard → Project Settings → Environment Variables')
-                console.error('   2. Add: GOOGLE_CLOUD_PROJECT_ID=ai-image-editor-483505')
-                console.error('   3. Add: GOOGLE_CLOUD_REGION=us-central1')
-                console.error('   4. Add: GOOGLE_SERVICE_ACCOUNT_KEY=(copy full JSON from .env)')
-                console.error('   5. Redeploy project')
-                
+                console.warn('⚠️ Image is a placeholder - generation may have failed')
                 // Show placeholder without overlay
                 setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
                 return
@@ -254,7 +240,6 @@ export default function ResultPage() {
               const blobUrl = URL.createObjectURL(blob)
               const fallbackImg = new Image()
               fallbackImg.onload = () => {
-                console.log('✅ Fallback image loaded successfully')
                 canvas.width = fallbackImg.width
                 canvas.height = fallbackImg.height
                 ctx.drawImage(fallbackImg, 0, 0)
@@ -262,14 +247,12 @@ export default function ResultPage() {
                 drawLogoAndFinalize(canvas, ctx)
               }
               fallbackImg.onerror = () => {
-                console.error('Fallback image also failed, using original without overlay')
                 setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
               }
               fallbackImg.src = blobUrl
             })
             .catch(e => {
-              console.error('Fallback fetch failed:', e.message)
-              console.error('   This could mean: storage file missing, CORS issue, or network error')
+              console.warn('Image load failed:', e?.message)
               setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
             })
         }
@@ -416,21 +399,18 @@ export default function ResultPage() {
 
       <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-6xl mx-auto">
-          {/* Warning banner if images are placeholders */}
-          {result?.images && result.images.length > 0 && (
-            <div className="mb-8 p-4 bg-red-900/30 border border-red-500/50 rounded-lg">
-              <p className="text-red-200 font-semibold mb-2">⚠️ Image Generation Issue Detected</p>
-              <p className="text-red-100/80 text-sm mb-3">
-                Images appear to be placeholders (1.14KB). This means Vertex AI image generation is not working in your Vercel deployment.
+          {/* Warning banner - only show if we detect placeholder images */}
+          {result?.images && result.images.some(img => img.url.includes('data:image/svg')) && (
+            <div className="mb-8 p-4 bg-amber-900/20 border border-amber-600/40 rounded-lg">
+              <p className="text-amber-100 font-semibold mb-2">⚠️ Image Generation Issue</p>
+              <p className="text-amber-50/80 text-sm mb-2">
+                Some images appear to be placeholders. This usually means the Vertex AI service account credentials are not configured in your Vercel deployment.
               </p>
-              <div className="text-red-100/70 text-xs space-y-1">
-                <p><strong>✅ To fix:</strong></p>
+              <div className="text-amber-50/70 text-xs space-y-1">
+                <p><strong>To fix this:</strong></p>
                 <ol className="list-decimal list-inside ml-2">
-                  <li>Go to Vercel Dashboard → Select your project</li>
-                  <li>Settings → Environment Variables</li>
-                  <li>Add <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_SERVICE_ACCOUNT_KEY</code> (full JSON from .env)</li>
-                  <li>Also add: <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_CLOUD_PROJECT_ID</code> and <code className="bg-red-950/50 px-2 py-1 rounded">GOOGLE_CLOUD_REGION</code></li>
-                  <li>Redeploy project</li>
+                  <li>Add <code className="bg-amber-950/50 px-1">GOOGLE_SERVICE_ACCOUNT_KEY</code> to Vercel Environment Variables</li>
+                  <li>Redeploy your project</li>
                 </ol>
               </div>
             </div>
