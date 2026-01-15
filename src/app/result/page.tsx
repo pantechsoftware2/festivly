@@ -500,35 +500,39 @@ export default function ResultPage() {
                       }}
                     />
                   ) : (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={image.url}
-                      alt={`Generated image ${index + 1}`}
-                      className="w-full h-full object-cover"
-                      crossOrigin="anonymous"
-                    />
+                    // Show loading skeleton while logo is being applied
+                    <div className="w-full h-full flex items-center justify-center">
+                      <div className="text-center">
+                        <div className="inline-block animate-spin mb-2">
+                          <div className="w-8 h-8 border-4 border-purple-500/30 border-t-purple-500 rounded-full"></div>
+                        </div>
+                        <p className="text-purple-200/60 text-xs">Processing image with logo...</p>
+                      </div>
+                    </div>
                   )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-end justify-center opacity-0 group-hover:opacity-100 p-4 gap-2 flex-col">
-                    <Button
-                      onClick={() => handleSaveImage(image.url, image.id, index + 1)}
-                      disabled={saving === image.id || downloading}
-                      className="w-full bg-green-600 hover:bg-green-700"
-                    >
-                      {saving === image.id ? '💾 Saving...' : '💾 Save to Projects'}
-                    </Button>
-                    <Button
-                      onClick={() => handleDownloadImage(image.url, image.id, index)}
-                      disabled={downloading || saving === image.id}
-                      className="w-full bg-purple-600 hover:bg-purple-700"
-                    >
-                      ⬇️ Download
-                    </Button>
-                  </div>
+                  {imagesWithLogo[image.id] && (
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-end justify-center opacity-0 group-hover:opacity-100 p-4 gap-2 flex-col">
+                      <Button
+                        onClick={() => handleSaveImage(image.url, image.id, index + 1)}
+                        disabled={saving === image.id || downloading}
+                        className="w-full bg-green-600 hover:bg-green-700"
+                      >
+                        {saving === image.id ? '💾 Saving...' : '💾 Save to Projects'}
+                      </Button>
+                      <Button
+                        onClick={() => handleDownloadImage(image.url, image.id, index)}
+                        disabled={downloading || saving === image.id}
+                        className="w-full bg-purple-600 hover:bg-purple-700"
+                      >
+                        ⬇️ Download
+                      </Button>
+                    </div>
+                  )}
                 </div>
                 <div className="p-4">
                   <p className="text-white text-sm">Image {index + 1}</p>
                   <p className="text-purple-200/60 text-xs">
-                    {imagesWithLogo[image.id] ? '✅ Logo included' : '📸 Ready to save'}
+                    {imagesWithLogo[image.id] ? '✅ Logo included' : '⏳ Applying logo...'}
                   </p>
                 </div>
               </Card>

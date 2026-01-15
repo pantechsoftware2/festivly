@@ -10,13 +10,16 @@ export default function AuthCallback() {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+   
         const supabase = createClient()
+
         const { data, error } = await supabase.auth.getSession()
 
         if (error) throw error
 
         if (data.session) {
           const user = data.session.user
+          // Read all sessionStorage values immediately
           const pendingIndustry = typeof window !== 'undefined' 
             ? sessionStorage.getItem('pending_industry') 
             : null
@@ -33,117 +36,175 @@ export default function AuthCallback() {
             ? sessionStorage.getItem('is_new_signup') === 'true'
             : false
 
-          // If this is marked as a new signup, check if user already exists
-          if (isNewSignup && user?.id) {
+          console.log('🔍 Auth Callback - Google User Session:', {
+            userId: user?.id,
+            email: user?.email,
+            userProvider: user?.app_metadata?.provider,
+            hasPendingLogo: !!pendingLogoBase64,
+            pendingLogoName,
+            pendingIndustry,
+            hasPendingIndustry: !!pendingIndustry,
+            isNewSignup
+          })
+          console.log('📦 SessionStorage contents:', {
+            'pending_industry': pendingIndustry,
+            'pending_logo_base64': pendingLogoBase64 ? 'EXISTS' : 'MISSING',
+            'pending_logo_name': pendingLogoName,
+            'is_new_signup': isNewSignup
+          })
+          console.log('🔍 Detailed value check:', {
+            'pendingIndustry is null?': pendingIndustry === null,
+            'pendingIndustry is empty string?': pendingIndustry === '',
+            'pendingIndustry actual value': JSON.stringify(pendingIndustry),
+            'hasPendingIndustry': !!pendingIndustry
+          })
+
+          // Check if user already has a profile in the database
+          let existingProfile = null
+          if (user?.id) {
             try {
-              const { data: existingProfile, error: profileError } = await supabase
+              const { data: profile } = await supabase
                 .from('profiles')
                 .select('id')
                 .eq('id', user.id)
-                .single()
-
-              // If profile exists, user is trying to signup again - redirect to login
-              if (existingProfile && !profileError) {
-                console.log('⚠️ User already exists, redirecting to login:', user.id)
-                
-                // Clear all pending data
-                if (typeof window !== 'undefined') {
-                  sessionStorage.removeItem('pending_industry')
-                  sessionStorage.removeItem('pending_logo_base64')
-                  sessionStorage.removeItem('pending_logo_name')
-                  sessionStorage.removeItem('pending_logo_type')
-                  sessionStorage.removeItem('is_new_signup')
-                }
-                
-                // Sign out this session
-                await supabase.auth.signOut()
-                
-                // Redirect to login with message
-                router.push(`/login?signup=exists&email=${encodeURIComponent(user.email || '')}`)
-                return
-              }
+                .maybeSingle()
+              existingProfile = profile
+              console.log('🔎 Profile check result:', { exists: !!existingProfile })
             } catch (checkError: any) {
-              console.log('Profile check returned error (expected for new user):', checkError.code)
-              // This is expected - new user won't have a profile yet
+              console.log('Profile check error:', checkError.code)
             }
           }
 
-          let logoUrl: string | null = null
-
-          // Upload logo if provided and this is a new signup
-          if (pendingLogoBase64 && pendingLogoName && user?.id && isNewSignup) {
-            try {
-              // Convert base64 to blob
-              const byteCharacters = atob(pendingLogoBase64.split(',')[1])
-              const byteNumbers = new Array(byteCharacters.length)
-              for (let i = 0; i < byteCharacters.length; i++) {
-                byteNumbers[i] = byteCharacters.charCodeAt(i)
-              }
-              const byteArray = new Uint8Array(byteNumbers)
-              const mimeType = pendingLogoType || 'image/jpeg'
-              const blob = new Blob([byteArray], { type: mimeType })
-              const logoFile = new File([blob], pendingLogoName, { type: mimeType })
-
-              // Upload logo
-              const formData = new FormData()
-              formData.append('logo', logoFile)
-              formData.append('userId', user.id)
-
-              const uploadResponse = await fetch('/api/signup/upload-logo', {
-                method: 'POST',
-                body: formData,
-              })
-
-              if (uploadResponse.ok) {
-                const uploadResult = await uploadResponse.json()
-                logoUrl = uploadResult.logoUrl
-              }
-            } catch (logoError: any) {
-              // Logo upload failed - continue without logo
-            }
-          }
-
-          // Always create/update user profile if this is a new signup (ensure profile exists)
+          // If this is a NEW signup, always update the profile with industry and logo
           if (user?.id && isNewSignup) {
+            console.log('✨ Processing new Google signup for user:', user.id)
+            let logoUrl: string | null = null
+
+            // Upload logo if provided
+            if (pendingLogoBase64 && pendingLogoName) {
+              try {
+                console.log('🔷 Starting logo upload for user:', user.id)
+                // Convert base64 to blob
+                const byteCharacters = atob(pendingLogoBase64.split(',')[1])
+                const byteNumbers = new Array(byteCharacters.length)
+                for (let i = 0; i < byteCharacters.length; i++) {
+                  byteNumbers[i] = byteCharacters.charCodeAt(i)
+                }
+                const byteArray = new Uint8Array(byteNumbers)
+                const mimeType = pendingLogoType || 'image/jpeg'
+                const blob = new Blob([byteArray], { type: mimeType })
+                const logoFile = new File([blob], pendingLogoName, { type: mimeType })
+
+                console.log('📦 Logo file prepared:', { name: logoFile.name, size: logoFile.size, type: logoFile.type })
+
+                // Upload logo
+                const formData = new FormData()
+                formData.append('logo', logoFile)
+                formData.append('userId', user.id)
+
+                const uploadResponse = await fetch('/api/signup/upload-logo', {
+                  method: 'POST',
+                  body: formData,
+                })
+
+                console.log('📤 Upload response status:', uploadResponse.status)
+
+                if (uploadResponse.ok) {
+                  const uploadResult = await uploadResponse.json()
+                  logoUrl = uploadResult.logoUrl
+                  console.log('✅ Logo uploaded successfully:', logoUrl)
+                } else {
+                  const errorText = await uploadResponse.text()
+                  console.error('❌ Logo upload failed:', uploadResponse.status, errorText)
+                }
+              } catch (logoError: any) {
+                console.error('❌ Logo upload error:', logoError.message)
+                // Logo upload failed - continue without logo
+              }
+            }
+
+            // Create or update user profile with industry and logo
             try {
               const profileData: any = {
                 id: user.id,
-                email: user.email,
+                email: user.email || null,
               }
+              // Always include industry and logo
               if (pendingIndustry) profileData.industry_type = pendingIndustry
               if (logoUrl) profileData.brand_logo_url = logoUrl
 
-              console.log('📝 Creating/updating profile for new user:', user.id, 'with data:', profileData)
+              console.log('💾 CALLBACK - Upserting Google profile with:', {
+                id: user.id,
+                email: user.email,
+                industry_type: pendingIndustry || null,
+                brand_logo_url: logoUrl || null
+              })
 
-              await supabase
-                .from('profiles')
-                .upsert(profileData, {
-                  onConflict: 'id'
+              // Use the same profiles endpoint for consistency
+              const profileResponse = await fetch('/api/profiles', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(profileData),
+              })
+
+              console.log('📤 Profile API response status:', profileResponse.status)
+
+              if (!profileResponse.ok) {
+                const profileError = await profileResponse.json()
+                console.error('❌ Profile save error:', profileError)
+              } else {
+                const profileResult = await profileResponse.json()
+                console.log('✅ Profile created/updated successfully:', {
+                  id: profileResult.profile?.id,
+                  industry_type: profileResult.profile?.industry_type,
+                  brand_logo_url: profileResult.profile?.brand_logo_url
                 })
-              
-              console.log('✅ Profile created/updated successfully')
-              
-              // Clear pending data from storage
-              if (typeof window !== 'undefined') {
-                sessionStorage.removeItem('pending_industry')
-                sessionStorage.removeItem('pending_logo_base64')
-                sessionStorage.removeItem('pending_logo_name')
-                sessionStorage.removeItem('pending_logo_type')
-                sessionStorage.removeItem('is_new_signup')
               }
             } catch (profileError: any) {
-              console.error('❌ Profile creation failed:', profileError)
-              // Could not save profile - continue anyway
+              console.error('❌ Profile creation exception:', profileError)
+              // Continue anyway - profile creation failure shouldn't block login
             }
-          } else {
-            // Clear pending data even if not new signup
-            if (typeof window !== 'undefined') {
-              sessionStorage.removeItem('pending_industry')
-              sessionStorage.removeItem('pending_logo_base64')
-              sessionStorage.removeItem('pending_logo_name')
-              sessionStorage.removeItem('pending_logo_type')
-              sessionStorage.removeItem('is_new_signup')
+          } else if (user?.id && !isNewSignup && !existingProfile) {
+            // For existing logins without profiles, create a minimal profile
+            console.log('👤 Creating minimal profile for existing user (non-signup login):', user.id)
+            try {
+              const profileData = {
+                id: user.id,
+                email: user.email || null,
+              }
+
+              const profileResponse = await fetch('/api/profiles', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(profileData),
+              })
+
+              if (!profileResponse.ok) {
+                const profileError = await profileResponse.json()
+                console.error('❌ Profile save error:', profileError)
+              } else {
+                const profileResult = await profileResponse.json()
+                console.log('✅ Minimal profile created:', profileResult.profile?.id)
+              }
+            } catch (profileError: any) {
+              console.error('❌ Profile creation exception:', profileError)
             }
+          } else if (user?.id && existingProfile) {
+            console.log('👤 User already has profile:', existingProfile.id)
+          }
+
+          // ✅ CLEAR sessionStorage AFTER all async operations are complete
+          if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('pending_industry')
+            sessionStorage.removeItem('pending_logo_base64')
+            sessionStorage.removeItem('pending_logo_name')
+            sessionStorage.removeItem('pending_logo_type')
+            sessionStorage.removeItem('is_new_signup')
+            console.log('✅ Cleared all pending data from sessionStorage')
           }
 
           router.push('/')

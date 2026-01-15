@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -99,13 +99,14 @@ function SignUpContent() {
   const searchParams = useSearchParams()
   let prompt = searchParams.get('prompt')
   
-  // If no prompt in URL, check localStorage (for users returning from Google Sign-In)
+  // If no prompt in URL, check sessionStorage (for users returning from Google Sign-In)
   if (!prompt && typeof window !== 'undefined') {
-    prompt = localStorage.getItem('pending_prompt')
+    prompt = sessionStorage.getItem('pending_prompt')
   }
   
   const { signUpWithEmail, signInWithGoogle, user, loading: authLoading } = useAuth()
-  const supabase = createClient()
+  // Memoize createClient to prevent multiple instances
+  const supabase = useMemo(() => createClient(), [])
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -128,18 +129,31 @@ function SignUpContent() {
         return
       }
       
-      // Convert unsupported formats to JPEG
+      // Convert unsupported formats to JPEG and create preview
       convertImageIfNeeded(file).then((convertedFile) => {
         setLogoFile(convertedFile)
         setError(null)
-        // Create preview
-        const reader = new FileReader()
-        reader.onloadend = () => {
-          setLogoPreview(reader.result as string)
-        }
-        reader.readAsDataURL(convertedFile)
+        // Create preview using a Promise-based FileReader to ensure it completes
+        new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => {
+            const result = reader.result as string
+            resolve(result)
+          }
+          reader.onerror = () => {
+            console.error('Failed to read file for preview')
+            resolve('') // Resolve with empty string on error
+          }
+          reader.readAsDataURL(convertedFile)
+        }).then((preview) => {
+          if (preview) {
+            setLogoPreview(preview)
+            console.log('✅ Logo preview set successfully')
+          }
+        })
       }).catch((err) => {
         setError(`Failed to process image: ${err.message}`)
+        console.error('Image processing error:', err)
       })
     }
   }
@@ -240,7 +254,7 @@ function SignUpContent() {
 
       // After signup, redirect to dashboard
       if (prompt) {
-        localStorage.removeItem('pending_prompt')
+        sessionStorage.removeItem('pending_prompt')
         router.push(`/editor?prompt=${encodeURIComponent(prompt)}`)
       } else {
         router.push('/dashboard')
@@ -390,24 +404,42 @@ function SignUpContent() {
                 setError(null)
                 // Store industry in sessionStorage for after Google Sign-In callback
                 if (typeof window !== 'undefined') {
+                  console.log('🔐 Google signup: Storing pending data in sessionStorage')
                   sessionStorage.setItem('pending_industry', industryType)
+                  console.log('✅ Industry stored:', industryType)
                   // Mark this as a new signup (not an existing user login)
                   sessionStorage.setItem('is_new_signup', 'true')
+                  
                   // Also store logo file as base64 if selected
                   if (logoFile) {
-                    const reader = new FileReader()
-                    reader.onloadend = () => {
-                      sessionStorage.setItem('pending_logo_base64', reader.result as string)
-                      sessionStorage.setItem('pending_logo_name', logoFile.name)
-                      sessionStorage.setItem('pending_logo_type', logoFile.type)
-                    }
-                    reader.readAsDataURL(logoFile)
+                    console.log('📷 Google signup: Converting logo to base64 before OAuth...')
+                    // IMPORTANT: Wait for FileReader to complete before redirecting!
+                    await new Promise<void>((resolve) => {
+                      const reader = new FileReader()
+                      reader.onloadend = () => {
+                        const base64 = reader.result as string
+                        sessionStorage.setItem('pending_logo_base64', base64)
+                        sessionStorage.setItem('pending_logo_name', logoFile.name)
+                        sessionStorage.setItem('pending_logo_type', logoFile.type)
+                        console.log('✅ Logo converted and stored in sessionStorage')
+                        resolve()
+                      }
+                      reader.onerror = () => {
+                        console.error('❌ FileReader error')
+                        resolve() // Continue anyway
+                      }
+                      reader.readAsDataURL(logoFile)
+                    })
+                  } else {
+                    console.log('⚠️ No logo file selected for Google signup')
                   }
                 }
+                console.log('🔑 Initiating Google Sign-In...')
                 await signInWithGoogle()
               } catch (err: any) {
                 // Check if it's user already registered error
                 const errorMsg = err?.message ?? 'Failed to sign in with Google'
+                console.error('❌ Google signup error:', errorMsg)
                 if (errorMsg.includes('User already registered') || errorMsg.includes('already exists')) {
                   setError('Account already exists! Please sign in instead.')
                 } else {
