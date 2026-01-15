@@ -8,7 +8,7 @@ import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase'
 
 interface GeneratedImage {
   id: string
@@ -49,10 +49,7 @@ export default function ResultPage() {
 
     const incrementCount = async () => {
       try {
-        const supabase = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        )
+        const supabase = createClient()
 
         // Check if this is first generation (count = 0)
         const limitInfo = await checkImageLimit(user.id, supabase)

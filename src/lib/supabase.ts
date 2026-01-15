@@ -1,6 +1,9 @@
 import { createBrowserClient } from '@supabase/ssr'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
+// Singleton instance to avoid multiple GoTrueClient warnings
+let browserClient: ReturnType<typeof createBrowserClient> | null = null
+
 export function createClient() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
@@ -12,7 +15,14 @@ export function createClient() {
     )
   }
 
-  return createBrowserClient(supabaseUrl, supabaseAnonKey)
+  // Return existing client if already created
+  if (browserClient) {
+    return browserClient
+  }
+
+  // Create and cache the client
+  browserClient = createBrowserClient(supabaseUrl, supabaseAnonKey)
+  return browserClient
 }
 
 export function createServiceRoleClient() {

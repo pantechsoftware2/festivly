@@ -11,7 +11,6 @@ import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { addLogoToImage } from '@/lib/canvas-export'
 import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
 
@@ -143,10 +142,7 @@ function EditorPageContent() {
 
     // Check image generation limit BEFORE starting generation
     try {
-      const supabase = createSupabaseClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+      const supabase = createClient()
 
       const limitInfo = await checkImageLimit(user.id, supabase)
       setImagesGenerated(limitInfo.imagesGenerated)
