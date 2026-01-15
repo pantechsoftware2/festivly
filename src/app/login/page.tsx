@@ -27,13 +27,24 @@ function SignInContent() {
 
   const router = useRouter()
   const searchParams = useSearchParams()
-  const { signInWithEmail, signInWithGoogle } = useAuth()
+  const { signInWithEmail, signInWithGoogle, user, loading: authLoading } = useAuth()
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/')
+    }
+  }, [user, authLoading, router])
 
   // Check if coming from signup
   useEffect(() => {
     const signupSuccess = searchParams.get('signup')
+    const email = searchParams.get('email')
     if (signupSuccess === 'success') {
-      setSuccess('Account created! Check your email for confirmation link, then sign in.')
+      setSuccess('Account created! You can now sign in.')
+    }
+    if (signupSuccess === 'exists') {
+      setSuccess(`Account already exists for ${email}. Please sign in below.`)
     }
   }, [searchParams])
 
@@ -104,12 +115,6 @@ function SignInContent() {
               {error}
             </div>
           )}
-
-          {/* Info box for email confirmation */}
-          {/* <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 text-xs">
-            <p className="font-semibold mb-1">ℹ️ Email Confirmation</p>
-            <p>A confirmation link has been sent to your email. Click it to verify, then sign in.</p>
-          </div> */}
 
           <form onSubmit={handleSignIn} className="space-y-3 sm:space-y-4 mb-4 sm:mb-6">
             <Input

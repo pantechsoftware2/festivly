@@ -125,17 +125,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         console.log('Signing up with email:', email)
 
-        const redirectUrl = getRedirectUrl()
-
         const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: {
-            emailRedirectTo: redirectUrl,
-            data: {
-              full_name: '',
-            },
-          },
         })
 
         if (error) {
@@ -149,7 +141,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error
       }
     },
-    [supabase, getRedirectUrl]
+    [supabase]
   )
 
   const signInWithEmail = useCallback(
@@ -164,12 +156,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         if (error) {
           console.error('Sign in error:', error)
-          // Handle email confirmation requirement more gracefully
-          if (error.message && error.message.includes('Email not confirmed')) {
-            throw new Error(
-              'Email not confirmed. Click the confirmation link in your email, then sign in again. Or use test@example.com / test123 to try the app.'
-            )
-          }
           throw new Error(error.message || 'Failed to sign in')
         }
 

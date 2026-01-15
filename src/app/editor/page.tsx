@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import { useState, useEffect } from 'react'
 import { Card } from '@/components/ui/card'
 import { Header } from '@/components/header'
+import { Footer } from '@/components/footer'
 import { GenerationSpinner } from '@/components/generation-spinner'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -464,7 +465,6 @@ export default function EditorPage() {
         </div>
       </main>
     }>
-      <EditorPageContent />
-    </Suspense>
+      <EditorPageContent />      <Footer />    </Suspense>
   )
 }

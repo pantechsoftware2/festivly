@@ -60,11 +60,11 @@ export function Header() {
                   My Projects
                 </Button>
               </Link>
-              <Link href="/editor">
+              {/* <Link href="/editor">
                 <Button size="sm" className="bg-white hover:bg-white/90 text-black font-semibold text-xs sm:text-sm">
                   Editor
                 </Button>
-              </Link>
+              </Link> */}
               <Button
                 size="sm"
                 onClick={handleSignOut}
@@ -115,11 +115,11 @@ export function Header() {
                     My Projects
                   </Button>
                 </Link>
-                <Link href="/editor" onClick={() => setMobileMenuOpen(false)}>
+                {/* <Link href="/editor" onClick={() => setMobileMenuOpen(false)}>
                   <Button className="w-full bg-white hover:bg-white/90 text-black font-semibold justify-start">
                     Editor
                   </Button>
-                </Link>
+                </Link> */}
                 <Button
                   onClick={handleSignOut}
                   disabled={signingOut}

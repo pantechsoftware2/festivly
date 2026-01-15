@@ -4,8 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/header'
+import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { createClient } from '@/lib/supabase'
 
 interface Project {
   id: string
@@ -57,16 +59,28 @@ export default function ProjectsPage() {
 
     setDeleting(projectId)
     try {
+      const supabase = createClient()
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session?.access_token) {
+        throw new Error('Authentication required')
+      }
+
       const response = await fetch(`/api/projects/${projectId}`, {
         method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
       })
 
       if (!response.ok) {
-        throw new Error('Failed to delete project')
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete project')
       }
 
       setProjects(projects.filter(p => p.id !== projectId))
+      alert('Project deleted successfully!')
     } catch (err: any) {
       alert(`Error: ${err.message}`)
     } finally {
@@ -179,38 +193,38 @@ export default function ProjectsPage() {
             >
               ← Generate More
             </Button>
-            <Button
-              onClick={() => router.push('/editor')}
-              className="bg-blue-600 hover:bg-blue-700"
-            >
-              ✏️ Editor
-            </Button>
+          
           </div>
         </div>
       </section>
 
+      <Footer />
+
       {/* Image Viewer Modal */}
       {viewingImage && (
         <div
-          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 bg-black/90 flex items-center justify-center z-50 p-4"
           onClick={() => setViewingImage(null)}
         >
           <div
-            className="relative max-w-4xl w-full max-h-[90vh]"
+            className="relative max-w-6xl w-full max-h-[90vh] flex items-center justify-center"
             onClick={(e) => e.stopPropagation()}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={viewingImage}
-              alt="Project image"
-              className="w-full h-full object-contain"
+              alt="Project image fullscreen"
+              className="w-full h-full object-contain rounded-lg"
             />
             <button
               onClick={() => setViewingImage(null)}
-              className="absolute top-4 right-4 bg-black/50 hover:bg-black/70 text-white rounded-full w-10 h-10 flex items-center justify-center text-xl"
+              className="absolute top-4 right-4 bg-red-600 hover:bg-red-700 text-white rounded-full w-12 h-12 flex items-center justify-center text-2xl font-bold transition-all"
             >
               ✕
             </button>
+            <p className="absolute bottom-4 left-4 text-white text-sm bg-black/50 px-4 py-2 rounded">
+              Click to close
+            </p>
           </div>
         </div>
       )}

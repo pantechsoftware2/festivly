@@ -9,7 +9,7 @@ export function Footer() {
   return (
     <footer className="bg-slate-950 border-t border-purple-500/20 mt-16">
       {/* Pricing CTA Section */}
-      <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 border-b border-purple-500/20 py-8 px-4">
+      {/* <div className="bg-gradient-to-r from-purple-900/20 to-purple-800/20 border-b border-purple-500/20 py-8 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
@@ -27,7 +27,7 @@ export function Footer() {
             </Link>
           </div>
         </div>
-      </div>
+      </div> */}
 
       {/* Main Footer */}
       <div className="py-12 px-4">
@@ -119,7 +119,7 @@ export function Footer() {
           </div>
 
           {/* Divider */}
-          <div className="border-t border-purple-500/20 pt-8">
+          <div className="border-t border-purple-500/20 pt-6">
             {/* Bottom Section */}
             <div className="flex flex-col md:flex-row justify-between items-center">
               <div className="text-purple-200/60 text-sm mb-4 md:mb-0">
@@ -127,7 +127,7 @@ export function Footer() {
               </div>
               
               {/* Social Links */}
-              <div className="flex gap-4">
+              {/* <div className="flex gap-4">
                 <a href="#" className="text-purple-200/70 hover:text-purple-200 text-sm">
                   Twitter
                 </a>
@@ -137,7 +137,7 @@ export function Footer() {
                 <a href="#" className="text-purple-200/70 hover:text-purple-200 text-sm">
                   Instagram
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
         </div>

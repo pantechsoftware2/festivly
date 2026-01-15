@@ -13,6 +13,7 @@ export default function Contact() {
   })
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -25,15 +26,28 @@ export default function Contact() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    setError(null)
 
     try {
-      // Simulate sending email
-      await new Promise((resolve) => setTimeout(resolve, 1000))
+      const response = await fetch('/api/send-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(formData),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to send email')
+      }
+
       setSuccess(true)
       setFormData({ name: '', email: '', subject: '', message: '' })
       setTimeout(() => setSuccess(false), 5000)
-    } catch (error) {
-      console.error('Error sending message:', error)
+    } catch (err: any) {
+      console.error('Error sending message:', err)
+      setError(err.message || 'Failed to send message. Please try again.')
     } finally {
       setLoading(false)
     }
@@ -89,6 +103,12 @@ export default function Contact() {
               {success && (
                 <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-lg mb-6">
                   ✅ Thanks for your message! We'll get back to you soon.
+                </div>
+              )}
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
+                  ❌ {error}
                 </div>
               )}
 

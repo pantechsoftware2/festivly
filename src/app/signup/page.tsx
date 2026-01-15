@@ -104,8 +104,15 @@ function SignUpContent() {
     prompt = localStorage.getItem('pending_prompt')
   }
   
-  const { signUpWithEmail, signInWithGoogle } = useAuth()
+  const { signUpWithEmail, signInWithGoogle, user, loading: authLoading } = useAuth()
   const supabase = createClient()
+
+  // Auto-redirect if already logged in
+  useEffect(() => {
+    if (!authLoading && user) {
+      router.push('/')
+    }
+  }, [user, authLoading, router])
 
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -240,6 +247,13 @@ function SignUpContent() {
       }
     } catch (err: any) {
       const message = err?.message ?? 'Signup failed'
+      
+      // Check if user already exists
+      if (message.includes('User already registered') || message.includes('already exists')) {
+        // Redirect to login with message
+        router.push(`/login?signup=exists&email=${encodeURIComponent(email)}`)
+        return
+      }
       
       // Check if it's a schema/table error
       if (message.includes('could not find the table') || message.includes('profiles')) {
@@ -392,7 +406,13 @@ function SignUpContent() {
                 }
                 await signInWithGoogle()
               } catch (err: any) {
-                setError(err?.message ?? 'Failed to sign in with Google')
+                // Check if it's user already registered error
+                const errorMsg = err?.message ?? 'Failed to sign in with Google'
+                if (errorMsg.includes('User already registered') || errorMsg.includes('already exists')) {
+                  setError('Account already exists! Please sign in instead.')
+                } else {
+                  setError(errorMsg)
+                }
                 setLoading(false)
               }
             }}

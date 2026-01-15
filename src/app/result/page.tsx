@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/header'
+import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -23,7 +24,7 @@ interface Result {
 
 export default function ResultPage() {
   const router = useRouter()
-  const { user } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [result, setResult] = useState<Result | null>(null)
   const [loading, setLoading] = useState(true)
   const [downloading, setDownloading] = useState(false)
@@ -32,6 +33,13 @@ export default function ResultPage() {
   const [imagesWithLogo, setImagesWithLogo] = useState<Record<string, string>>({})
   const [logoPosition, setLogoPosition] = useState<'left' | 'right'>('right') // user-controllable position for logo overlay
   const [testOverlay, setTestOverlay] = useState(false) // debug: draw red square for testing overlay
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.push('/login')
+    }
+  }, [user, authLoading, router])
 
   // Default anonymous logo URL for users without custom logo
   const DEFAULT_LOGO_URL = 'https://adzndcsprxemlpgvcmsg.supabase.co/storage/v1/object/public/brand-logos/default-logo.png'
@@ -43,8 +51,29 @@ export default function ResultPage() {
       try {
         const data = JSON.parse(stored)
         setResult(data)
+        // Also save to localStorage for persistence when returning from projects
+        localStorage.setItem('lastGeneratedResult', JSON.stringify(data))
       } catch (err) {
         console.error('Failed to parse result:', err)
+        // Try loading from localStorage if sessionStorage fails
+        const lastResult = localStorage.getItem('lastGeneratedResult')
+        if (lastResult) {
+          try {
+            setResult(JSON.parse(lastResult))
+          } catch (e) {
+            console.error('Failed to parse last result:', e)
+          }
+        }
+      }
+    } else {
+      // If no session storage, try to load from localStorage (user returned from projects)
+      const lastResult = localStorage.getItem('lastGeneratedResult')
+      if (lastResult) {
+        try {
+          setResult(JSON.parse(lastResult))
+        } catch (e) {
+          console.error('Failed to parse last result:', e)
+        }
       }
     }
     setLoading(false)
@@ -555,6 +584,8 @@ export default function ResultPage() {
           </div>
         </div>
       </section>
+
+      <Footer />
     </main>
   )
 }

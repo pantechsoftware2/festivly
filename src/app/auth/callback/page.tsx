@@ -33,6 +33,41 @@ export default function AuthCallback() {
             ? sessionStorage.getItem('is_new_signup') === 'true'
             : false
 
+          // If this is marked as a new signup, check if user already exists
+          if (isNewSignup && user?.id) {
+            try {
+              const { data: existingProfile, error: profileError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', user.id)
+                .single()
+
+              // If profile exists, user is trying to signup again - redirect to login
+              if (existingProfile && !profileError) {
+                console.log('⚠️ User already exists, redirecting to login:', user.id)
+                
+                // Clear all pending data
+                if (typeof window !== 'undefined') {
+                  sessionStorage.removeItem('pending_industry')
+                  sessionStorage.removeItem('pending_logo_base64')
+                  sessionStorage.removeItem('pending_logo_name')
+                  sessionStorage.removeItem('pending_logo_type')
+                  sessionStorage.removeItem('is_new_signup')
+                }
+                
+                // Sign out this session
+                await supabase.auth.signOut()
+                
+                // Redirect to login with message
+                router.push(`/login?signup=exists&email=${encodeURIComponent(user.email || '')}`)
+                return
+              }
+            } catch (checkError: any) {
+              console.log('Profile check returned error (expected for new user):', checkError.code)
+              // This is expected - new user won't have a profile yet
+            }
+          }
+
           let logoUrl: string | null = null
 
           // Upload logo if provided and this is a new signup
@@ -68,8 +103,8 @@ export default function AuthCallback() {
             }
           }
 
-          // Update or create user profile with industry and logo only if this is a new signup
-          if ((pendingIndustry || logoUrl) && user?.id && isNewSignup) {
+          // Always create/update user profile if this is a new signup (ensure profile exists)
+          if (user?.id && isNewSignup) {
             try {
               const profileData: any = {
                 id: user.id,
@@ -78,11 +113,15 @@ export default function AuthCallback() {
               if (pendingIndustry) profileData.industry_type = pendingIndustry
               if (logoUrl) profileData.brand_logo_url = logoUrl
 
+              console.log('📝 Creating/updating profile for new user:', user.id, 'with data:', profileData)
+
               await supabase
                 .from('profiles')
                 .upsert(profileData, {
                   onConflict: 'id'
                 })
+              
+              console.log('✅ Profile created/updated successfully')
               
               // Clear pending data from storage
               if (typeof window !== 'undefined') {
@@ -93,6 +132,7 @@ export default function AuthCallback() {
                 sessionStorage.removeItem('is_new_signup')
               }
             } catch (profileError: any) {
+              console.error('❌ Profile creation failed:', profileError)
               // Could not save profile - continue anyway
             }
           } else {
