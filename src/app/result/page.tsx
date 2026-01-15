@@ -7,6 +7,8 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
+import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
+import { createClient } from '@supabase/supabase-js'
 
 interface GeneratedImage {
   id: string
@@ -31,8 +33,8 @@ export default function ResultPage() {
   const [saving, setSaving] = useState<string | null>(null)
   const [userLogo, setUserLogo] = useState<string | null>(null)
   const [imagesWithLogo, setImagesWithLogo] = useState<Record<string, string>>({})
-  const [logoPosition, setLogoPosition] = useState<'left' | 'right'>('right') // user-controllable position for logo overlay
-  const [testOverlay, setTestOverlay] = useState(false) // debug: draw red square for testing overlay
+  const [logoPosition, setLogoPosition] = useState<'left' | 'right'>('right')
+  const [testOverlay, setTestOverlay] = useState(false)
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -40,6 +42,32 @@ export default function ResultPage() {
       router.push('/login')
     }
   }, [user, authLoading, router])
+
+  // Increment image generation count on first generation
+  useEffect(() => {
+    if (!user?.id) return
+
+    const incrementCount = async () => {
+      try {
+        const supabase = createClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+        )
+
+        // Check if this is first generation (count = 0)
+        const limitInfo = await checkImageLimit(user.id, supabase)
+        if (limitInfo.imagesGenerated === 0) {
+          // First generation: increment the counter
+          await incrementImageCount(user.id, supabase)
+          console.log('✅ First generation counted')
+        }
+      } catch (err) {
+        console.error('Error incrementing image count:', err)
+      }
+    }
+
+    incrementCount()
+  }, [user?.id, result])
 
   // Default anonymous logo URL for users without custom logo
   const DEFAULT_LOGO_URL = 'https://adzndcsprxemlpgvcmsg.supabase.co/storage/v1/object/public/brand-logos/default-logo.png'
@@ -78,50 +106,74 @@ export default function ResultPage() {
     }
     setLoading(false)
 
-    // Fetch user's logo from profile (handle 404 gracefully)
+    // Fetch user's logo EAGERLY and in parallel
     if (user?.id) {
-      fetch(`/api/profiles/${user.id}`)
-        .then(res => {
-          if (!res.ok) {
-            return null
+      const fetchUserLogoEagerly = async () => {
+        const cacheKey = `logo_${user.id}`
+        
+        // Check cache immediately (5 minute TTL)
+        const cached = localStorage.getItem(cacheKey)
+        if (cached) {
+          try {
+            const { url, timestamp } = JSON.parse(cached)
+            const age = Date.now() - timestamp
+            if (age < 5 * 60 * 1000) {
+              if (url) {
+                setUserLogo(url)
+                console.log('✅ Logo ready from cache')
+              }
+              return // Don't fetch if cache is fresh
+            }
+          } catch (e) {
+            localStorage.removeItem(cacheKey)
           }
-          return res.json()
-        })
-        .then(data => {
-          // Check if data is empty object
-          if (!data || Object.keys(data).length === 0) {
-            setUserLogo(null)
+        }
+
+        // Fetch fresh logo with very aggressive timeout
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 second timeout
+          
+          const res = await fetch(`/api/profiles/${user.id}`, {
+            signal: controller.signal,
+          })
+          clearTimeout(timeoutId)
+          
+          if (!res.ok) {
+            console.debug('Logo API error')
             return
           }
           
-          if (data?.brand_logo_url && typeof data.brand_logo_url === 'string' && data.brand_logo_url.trim().length > 5) {
-            let trimmedUrl = data.brand_logo_url
-              .trim()
-              .replace(/["'`]+$/g, '')
-              .replace(/^["'`]+/g, '')
-              .replace(/\\/g, '')
-              .replace(/:\d+$/g, '')
-              .replace(/\s+/g, '')
-            
-            // Add protocol if missing
-            if (!trimmedUrl.startsWith('http://') && !trimmedUrl.startsWith('https://')) {
-              trimmedUrl = 'https://' + trimmedUrl
-            }
-            
-            // Try to validate as a proper URL
-            try {
-              new URL(trimmedUrl)
-              setUserLogo(trimmedUrl)
-            } catch (e) {
-              setUserLogo(null)
-            }
-          } else {
-            setUserLogo(null)
+          const data = await res.json()
+          if (!data?.brand_logo_url) {
+            console.debug('No logo in profile')
+            return
           }
-        })
-        .catch(err => {})
+          
+          const url = data.brand_logo_url.trim()
+          if (url.length > 5 && (url.startsWith('http://') || url.startsWith('https://'))) {
+            // Cache valid logo
+            try {
+              localStorage.setItem(cacheKey, JSON.stringify({
+                url,
+                timestamp: Date.now(),
+              }))
+            } catch (e) {
+              // localStorage might be full
+            }
+            setUserLogo(url)
+            console.log('✅ Logo ready from API')
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name !== 'AbortError') {
+            console.debug('Logo fetch error:', err)
+          }
+        }
+      }
+      
+      // Start fetching immediately (don't wait for anything)
+      fetchUserLogoEagerly()
     } else {
-      // Don't use default logo - only show logos for authenticated users with uploads
       setUserLogo(null)
     }
   }, [user])
@@ -144,14 +196,33 @@ export default function ResultPage() {
           return
         }
 
-        // Load the generated image
-        const img = new Image()
-        img.crossOrigin = 'anonymous'
-        img.referrerPolicy = 'no-referrer'
+        // Helper function to load image with timeout
+        const loadImageWithTimeout = (src: string, timeout: number = 8000): Promise<HTMLImageElement> => {
+          return new Promise((resolve, reject) => {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.referrerPolicy = 'no-referrer'
+            
+            const timeoutId = setTimeout(() => {
+              reject(new Error('Load timeout'))
+            }, timeout)
+            
+            img.onload = () => {
+              clearTimeout(timeoutId)
+              resolve(img)
+            }
+            
+            img.onerror = () => {
+              clearTimeout(timeoutId)
+              reject(new Error('Load failed'))
+            }
+            
+            img.src = src
+          })
+        }
         
         // Helper function to convert canvas to best available format
         const canvasToDataUrl = (canvasElement: HTMLCanvasElement) => {
-          // Try WebP first (better compression), fallback to PNG
           try {
             const testCanvas = document.createElement('canvas')
             testCanvas.width = 1
@@ -166,150 +237,78 @@ export default function ResultPage() {
           }
           return canvasElement.toDataURL('image/png')
         }
-        
-        const drawLogoAndFinalize = (canvasElement: HTMLCanvasElement, ctxElement: CanvasRenderingContext2D) => {
-          // Calculate logo position for both test and normal modes
-          const logoSize = Math.max(48, Math.min(150, Math.round(Math.min(canvasElement.width, canvasElement.height) * 0.12)))
-          const margin = Math.max(12, Math.round(Math.min(canvasElement.width, canvasElement.height) * 0.02))
-          const logoX = position === 'right' ? canvasElement.width - logoSize - margin : margin
-          const logoY = canvasElement.height - logoSize - margin
 
-          // If test overlay is enabled, draw red box AND try to load logo inside it
-          if (testOverlay) {
-            // Draw red box background
-            ctxElement.fillStyle = 'rgba(220, 38, 38, 0.3)'
-            ctxElement.fillRect(logoX, logoY, logoSize, logoSize)
+        // Load main image
+        let mainImg: HTMLImageElement
+        try {
+          mainImg = await loadImageWithTimeout(imageUrl, 10000)
+        } catch (e) {
+          // Fallback: try direct fetch
+          try {
+            const res = await fetch(imageUrl)
+            if (!res.ok) throw new Error(`HTTP ${res.status}`)
+            const blob = await res.blob()
             
-            // Try to load and draw logo inside the red box
-            if (logoUrl) {
-              const testLogo = new Image()
-              testLogo.crossOrigin = 'anonymous'
-              testLogo.referrerPolicy = 'no-referrer'
-              testLogo.onload = () => {
-                try {
-                  if (testLogo.width > 0 && testLogo.height > 0) {
-                    ctxElement.drawImage(testLogo, logoX, logoY, logoSize, logoSize)
-                  }
-                } catch (e) {
-                  // Silent error
-                }
-                try {
-                  const dataUrl = canvasToDataUrl(canvasElement)
-                  setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
-                } catch (e) {
-                  // Silent error
-                }
-              }
-              testLogo.onerror = () => {
-                const dataUrl = canvasToDataUrl(canvasElement)
-                setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
-              }
-              testLogo.src = logoUrl
-            } else {
-              const dataUrl = canvasToDataUrl(canvasElement)
-              setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
+            if (blob.size < 5000) {
+              // Placeholder - show without overlay
+              setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
+              return
             }
+            
+            const blobUrl = URL.createObjectURL(blob)
+            mainImg = await loadImageWithTimeout(blobUrl, 8000)
+          } catch (fallbackErr) {
+            setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
             return
           }
-
-          // Load and draw the logo (draw AFTER the main image to avoid race conditions)
-          const logo = new Image()
-          logo.crossOrigin = 'anonymous'
-          logo.referrerPolicy = 'no-referrer'
-
-          // When logo loads successfully, draw it on top
-          logo.onload = () => {
-            try {
-              // Ensure we have valid dimensions before drawing
-              if (logo.width > 0 && logo.height > 0) {
-                ctxElement.drawImage(logo, logoX, logoY, logoSize, logoSize)
-              }
-            } catch (e) {
-              // Silent error
-            }
-
-            try {
-              const dataUrl = canvasToDataUrl(canvasElement)
-              setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
-            } catch (e) {
-              // Silent error
-            }
-          }
-
-          // If logo fails to load, just finalize without it
-          logo.onerror = () => {
-            try {
-              const dataUrl = canvasToDataUrl(canvasElement)
-              setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
-            } catch (e) {
-              // Silent error
-            }
-          }
-
-          // Start loading logo (if provided and valid)
-          if (logoUrl && logoUrl.length > 10 && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'))) {
-            logo.src = logoUrl
-          } else {
-            // No logo provided - still save canvas (without logo overlay)
-            try {
-              const dataUrl = canvasToDataUrl(canvasElement)
-              setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
-            } catch (e) {
-              // Silent error
-            }
-          }
         }
-        
-        // Handle main image load success
-        img.onload = () => {
-          canvas.width = img.width
-          canvas.height = img.height
 
-          // Draw the base image
-          ctx.drawImage(img, 0, 0)
+        // Set canvas dimensions
+        canvas.width = mainImg.width
+        canvas.height = mainImg.height
 
-          // Apply logo overlay
-          drawLogoAndFinalize(canvas, ctx)
+        // Draw main image
+        ctx.drawImage(mainImg, 0, 0)
+
+        // Calculate logo position and size
+        const logoSize = Math.max(48, Math.min(150, Math.round(Math.min(canvas.width, canvas.height) * 0.12)))
+        const margin = Math.max(12, Math.round(Math.min(canvas.width, canvas.height) * 0.02))
+        const logoX = position === 'right' ? canvas.width - logoSize - margin : margin
+        const logoY = canvas.height - logoSize - margin
+
+        // Draw test overlay if enabled
+        if (testOverlay) {
+          ctx.fillStyle = 'rgba(220, 38, 38, 0.3)'
+          ctx.fillRect(logoX, logoY, logoSize, logoSize)
         }
-        
-        // Handle main image load failure
-        img.onerror = () => {
-          // Fallback: try to fetch the image and convert to blob
-          fetch(imageUrl)
-            .then(res => {
-              if (!res.ok) {
-                throw new Error(`HTTP ${res.status}`)
-              }
-              return res.blob()
-            })
-            .then(blob => {
-              // If blob is very small (< 5KB), it's a placeholder SVG from failed generation
-              if (blob.size < 5000) {
-                // Show placeholder without overlay
-                setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
-                return
-              }
+
+        // Load and draw logo if provided and valid
+        if (logoUrl && logoUrl.length > 10 && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'))) {
+          try {
+            const logoImg = await loadImageWithTimeout(logoUrl, 5000)
+            
+            if (logoImg.width > 0 && logoImg.height > 0) {
+              // Add subtle background for logo visibility
+              ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'
+              ctx.fillRect(logoX - 6, logoY - 6, logoSize + 12, logoSize + 12)
               
-              const blobUrl = URL.createObjectURL(blob)
-              const fallbackImg = new Image()
-              fallbackImg.onload = () => {
-                canvas.width = fallbackImg.width
-                canvas.height = fallbackImg.height
-                ctx.drawImage(fallbackImg, 0, 0)
-                // Continue with logo overlay
-                drawLogoAndFinalize(canvas, ctx)
-              }
-              fallbackImg.onerror = () => {
-                setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
-              }
-              fallbackImg.src = blobUrl
-            })
-            .catch(e => {
-              setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
-            })
+              // Draw logo
+              ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+            }
+          } catch (logoErr) {
+            // Logo failed to load - continue without it
+            console.debug('Logo load failed:', logoErr)
+          }
         }
-        
-        img.src = imageUrl
+
+        // Finalize and save
+        try {
+          const dataUrl = canvasToDataUrl(canvas)
+          setImagesWithLogo(prev => ({ ...prev, [imageId]: dataUrl }))
+        } catch (e) {
+          // Fallback to original image
+          setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
+        }
       } catch (err) {
         // Silent error handling
       }

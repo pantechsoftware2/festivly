@@ -6,11 +6,14 @@ import { Card } from '@/components/ui/card'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { GenerationSpinner } from '@/components/generation-spinner'
+import { UpgradeModal } from '@/components/upgrade-modal'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { addLogoToImage } from '@/lib/canvas-export'
+import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
 
 
 function EditorPageContent() {
@@ -29,31 +32,80 @@ function EditorPageContent() {
   const [isSaving, setIsSaving] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
   const [brandLogoUrl, setBrandLogoUrl] = useState<string | null>(null)
+  const [logoFetching, setLogoFetching] = useState(true)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [imagesGenerated, setImagesGenerated] = useState(0)
+  const [imagesRemaining, setImagesRemaining] = useState(5)
 
 
   const { user, loading: authLoading } = useAuth()
   const router = useRouter()
   const searchParams = useSearchParams()
 
+  // Helper function to fetch logo with aggressive caching
+  const fetchLogoWithCache = async (userId: string): Promise<string | null> => {
+    const cacheKey = `logo_${userId}`
+    
+    // Check cache first (5 minute TTL)
+    const cached = localStorage.getItem(cacheKey)
+    if (cached) {
+      try {
+        const { url, timestamp } = JSON.parse(cached)
+        const age = Date.now() - timestamp
+        if (age < 5 * 60 * 1000) {
+          console.log('📦 Logo from cache')
+          return url || null
+        }
+      } catch (e) {
+        localStorage.removeItem(cacheKey)
+      }
+    }
 
-  // Fetch brand logo when user is loaded
+    // Fetch with timeout
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 2500) // 2.5 second timeout
+      
+      const response = await fetch(`/api/profiles/${userId}`, {
+        signal: controller.signal,
+      })
+      clearTimeout(timeoutId)
+      
+      if (!response.ok) return null
+      
+      const profile = await response.json()
+      const logoUrl = profile?.brand_logo_url || null
+      
+      // Cache the result
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          url: logoUrl,
+          timestamp: Date.now(),
+        }))
+      } catch (e) {
+        // localStorage might be full
+      }
+      
+      return logoUrl
+    } catch (err) {
+      console.debug('Logo fetch error:', err)
+      return null
+    }
+  }
+
+  // Fetch brand logo IMMEDIATELY when user is loaded
   useEffect(() => {
     if (user?.id) {
-      const fetchBrandLogo = async () => {
-        try {
-          const response = await fetch(`/api/profiles/${user.id}`)
-          if (response.ok) {
-            const profile = await response.json()
-            if (profile.brand_logo_url) {
-              setBrandLogoUrl(profile.brand_logo_url)
-              console.log('✅ Brand logo loaded:', profile.brand_logo_url)
-            }
-          }
-        } catch (err) {
-          console.log('ℹ️ Could not load brand logo:', err)
+      setLogoFetching(true)
+      fetchLogoWithCache(user.id).then(logoUrl => {
+        if (logoUrl) {
+          setBrandLogoUrl(logoUrl)
+          console.log('✅ Brand logo ready:', logoUrl.substring(0, 50) + '...')
         }
-      }
-      fetchBrandLogo()
+        setLogoFetching(false)
+      })
+    } else {
+      setLogoFetching(false)
     }
   }, [user?.id])
 
@@ -77,73 +129,119 @@ function EditorPageContent() {
     }
   }, [result])
 
-  // Manual generation handler for button click
+  // Manual generation handler for button click - Clean logic for auth users
   const handleGenerateImage = async () => {
     if (!prompt.trim()) {
-      // Don't show a user-facing error; simply do nothing if prompt is empty
       return
     }
 
+    // Check auth state
+    if (!user?.id) {
+      setError('Please log in to generate images')
+      return
+    }
+
+    // Check image generation limit BEFORE starting generation
+    try {
+      const supabase = createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+      )
+
+      const limitInfo = await checkImageLimit(user.id, supabase)
+      setImagesGenerated(limitInfo.imagesGenerated)
+      setImagesRemaining(limitInfo.imagesRemaining)
+
+      // If user has already generated images and tries to generate again, show upgrade modal
+      if (limitInfo.imagesGenerated > 0 && limitInfo.subscription === 'free') {
+        console.log('⚠️ User trying to generate 2nd+ image, showing upgrade modal')
+        setShowUpgradeModal(true)
+        return
+      }
+    } catch (err) {
+      console.error('Error checking image limit:', err)
+      // Continue anyway if check fails
+    }
+
     setGenerating(true)
+    setError(null)
 
     try {
+      console.log(`🚀 Starting image generation for user: ${user.id}`)
+      
+      // Create AbortController with 150 second timeout (image generation + upload can be slow)
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 150000)
+      
+      const startTime = Date.now()
       const response = await fetch('/api/generateImage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           prompt: prompt.trim(),
-          userId: user?.id || 'anonymous',
+          userId: user.id,
         }),
+        signal: controller.signal,
       })
+      
+      clearTimeout(timeoutId)
+      const elapsed = Date.now() - startTime
+      console.log(`📡 Response received in ${elapsed}ms`)
 
-      // Try to parse JSON body if present
-      let data: unknown = null
+      // Parse response
+      let responseData: any = null
       try {
-        data = await response.json()
-      } catch {
-        data = null
+        responseData = await response.json()
+      } catch (parseErr) {
+        console.error('❌ Failed to parse response:', parseErr)
+        throw new Error('Invalid response format from server')
       }
 
-      // If API returned images (even on non-OK status), accept them silently
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (data && Array.isArray((data as any).images) && (data as any).images.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        setResult(data as any)
+      // Check for quota exceeded error
+      if (responseData?.error && responseData.error.includes('quota')) {
+        console.warn('⚠️ Quota exceeded but continuing:', responseData.error)
+        // Don't show error, let it continue
+      }
+
+      // Validate success response with images
+      if (responseData?.success && responseData?.images && Array.isArray(responseData.images) && responseData.images.length > 0) {
+        console.log(`✅ Generation successful! Got ${responseData.images.length} images`)
+        
+        // Store result
+        setResult(responseData)
+        
+        // Save to sessionStorage for result page
+        try {
+          sessionStorage.setItem('generatedResult', JSON.stringify(responseData))
+          localStorage.setItem('lastGeneratedResult', JSON.stringify(responseData))
+        } catch (e) {
+          console.warn('⚠️ Storage error:', e)
+        }
+        
+        // Redirect to result page immediately
+        router.push('/result')
         return
       }
 
-      // No images returned -> create a client-side placeholder and display it
-      const placeholderSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1350'><rect width='100%' height='100%' fill='#667eea'/><text x='50%' y='48%' font-size='48' fill='white' text-anchor='middle'>AI Image Generation</text><text x='50%' y='54%' font-size='24' fill='white' text-anchor='middle'>${prompt.substring(0,50)}${prompt.length>50?'...':''}</text></svg>`
-      const placeholderDataUrl = `data:image/svg+xml;base64,${btoa(placeholderSvg)}`
-      const fallback = {
-        success: true,
-        images: [{
-          id: 'placeholder',
-          url: placeholderDataUrl,
-          storagePath: '',
-          createdAt: new Date().toISOString(),
-        }],
-        prompt,
+      // Check for API error response
+      if (responseData?.error) {
+        console.error('❌ API error:', responseData.error)
+        throw new Error(responseData.error)
       }
 
-      setResult(fallback)
-    } catch {
-      // On unexpected errors, show a placeholder quietly
-      const placeholderSvg = `<svg xmlns='http://www.w3.org/2000/svg' width='1080' height='1350'><rect width='100%' height='100%' fill='#667eea'/><text x='50%' y='48%' font-size='48' fill='white' text-anchor='middle'>AI Image Generation</text><text x='50%' y='54%' font-size='24' fill='white' text-anchor='middle'>${prompt.substring(0,50)}${prompt.length>50?'...':''}</text></svg>`
-      const placeholderDataUrl = `data:image/svg+xml;base64,${btoa(placeholderSvg)}`
-      const fallback = {
-        success: true,
-        images: [{
-          id: 'placeholder',
-          url: placeholderDataUrl,
-          storagePath: '',
-          createdAt: new Date().toISOString(),
-        }],
-        prompt,
+      // No images in response
+      console.error('❌ No images in response:', responseData)
+      throw new Error('No images generated. Please try again.')
+    } catch (err: any) {
+      // Handle AbortError separately
+      if (err.name === 'AbortError') {
+        console.error('❌ Request timeout - generation took too long')
+        setError('Generation took too long. Please try again.')
+      } else {
+        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
+        console.error('❌ Generation failed:', errorMsg)
+        setError(errorMsg)
       }
-
-      setResult(fallback)
-    } finally {
       setGenerating(false)
     }
   }
@@ -242,8 +340,10 @@ function EditorPageContent() {
           if (brandLogoUrl) {
             try {
               console.log('🏷️ Adding logo to image...')
+              const startTime = performance.now()
               imageSource = await addLogoToImage(imageSource, brandLogoUrl, 'bottom-right', 120)
-              console.log('✅ Logo added successfully')
+              const elapsed = (performance.now() - startTime).toFixed(0)
+              console.log(`✅ Logo added in ${elapsed}ms`)
             } catch (logoError) {
               console.warn('⚠️ Could not add logo, downloading without:', logoError)
               // Continue with original image
@@ -272,26 +372,26 @@ function EditorPageContent() {
         if (brandLogoUrl) {
           try {
             console.log('🏷️ Adding logo to image...')
+            const startTime = performance.now()
+            
             // Convert blob to data URL for logo addition
-            const reader = new FileReader()
-            await new Promise((resolve) => {
+            const dataUrl = await new Promise<string>((resolve, reject) => {
+              const reader = new FileReader()
               reader.onload = () => {
-                const dataUrl = reader.result as string
-                addLogoToImage(dataUrl, brandLogoUrl, 'bottom-right', 120)
-                  .then((logoDataUrl) => {
-                    finalImageUrl = logoDataUrl
-                    console.log('✅ Logo added successfully')
-                    resolve(null)
-                  })
-                  .catch((err) => {
-                    console.warn('⚠️ Could not add logo:', err)
-                    resolve(null)
-                  })
+                resolve(reader.result as string)
+              }
+              reader.onerror = () => {
+                reject(new Error('Failed to read blob'))
               }
               reader.readAsDataURL(blob)
             })
+            
+            // Add logo with optimized function
+            finalImageUrl = await addLogoToImage(dataUrl, brandLogoUrl, 'bottom-right', 120)
+            const elapsed = (performance.now() - startTime).toFixed(0)
+            console.log(`✅ Logo added in ${elapsed}ms`)
           } catch (logoError) {
-            console.warn('⚠️ Logo processing failed:', logoError)
+            console.warn('⚠️ Could not add logo:', logoError)
             // Continue with original image
           }
         }
@@ -424,6 +524,19 @@ function EditorPageContent() {
         ]}
         isVisible={generating}
       />
+      
+      {/* Upgrade Modal - Show when user tries 2nd generation */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        imagesGenerated={imagesGenerated}
+        imagesRemaining={imagesRemaining}
+        onUpgradeClick={() => {
+          setShowUpgradeModal(false)
+          router.push('/pricing')
+        }}
+      />
+      
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
         {!generating && (
           <Card className="w-full max-w-md bg-white border-0 shadow-lg">

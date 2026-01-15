@@ -76,7 +76,6 @@ async function probeModelAvailability(modelId: string, accessToken: string, proj
   }
   
   try {
-    console.log(`   Testing ${modelId}...`)
     const res = await fetch(endpoint, {
       method: 'POST',
       headers: {
@@ -88,30 +87,22 @@ async function probeModelAvailability(modelId: string, accessToken: string, proj
     
     // If 200 OK -> model exists and works
     if (res.ok) {
-      console.log(`   ✅ ${modelId} is available and working`)
       return { available: true, permissionDenied: false }
     }
     
-    // If 400 with specific error about the model name -> model doesn't exist
+    // If 400 or 404 -> model doesn't exist
     if (res.status === 400 || res.status === 404) {
-      const errorText = await res.text()
-      if (errorText.includes('not found') || errorText.includes('does not exist')) {
-        console.log(`   ❌ ${modelId} does not exist`)
-        return { available: false, permissionDenied: false, status: res.status }
-      }
+      return { available: false, permissionDenied: false, status: res.status }
     }
     
-    // If 403 -> model exists but permission denied (might need enablement)
+    // If 403 -> permission denied
     if (res.status === 403) {
-      console.log(`   ⚠️  ${modelId} exists but permission denied (may need API enablement)`)
       return { available: false, permissionDenied: true }
     }
     
-    // Other errors -> try next model
-    console.log(`   ⚠️  ${modelId} returned status ${res.status}`)
+    // Other errors
     return { available: false, permissionDenied: false, status: res.status }
   } catch (e: any) {
-    console.log(`   ❌ ${modelId} network error:`, e?.message)
     return { available: false, permissionDenied: false }
   }
 }
@@ -119,24 +110,17 @@ async function probeModelAvailability(modelId: string, accessToken: string, proj
 async function ensureImagenModelSelected(accessToken: string): Promise<string> {
   const now = Date.now()
   if (_selectedImagenModel && now - _lastModelCheck < MODEL_CHECK_TTL) {
-    console.log(`📦 Using cached model: ${_selectedImagenModel}`)
     return _selectedImagenModel
   }
 
   const project = process.env.GOOGLE_CLOUD_PROJECT_ID!
   const location = process.env.GOOGLE_CLOUD_REGION || 'us-central1'
 
-  console.log(`\n🔎 Probing for best available Imagen model...`)
-  console.log(`   Region: ${location}`)
-  console.log(`   Checking ${IMAGEN4_CANDIDATES.length} Imagen-4 candidates...\n`)
-
   // Probe Imagen-4 candidates
   for (const candidate of IMAGEN4_CANDIDATES) {
-    console.log(`🔍 Checking: ${candidate}`)
     const result = await probeModelAvailability(candidate, accessToken, project, location)
     if (result.available) {
-      console.log(`\n✅ Selected model: ${candidate}`)
-      console.log(`   This is an Imagen-4 model!\n`)
+      console.log(`✅ Using model: ${candidate}`)
       _selectedImagenModel = candidate
       _lastModelCheck = Date.now()
       return _selectedImagenModel
@@ -144,9 +128,7 @@ async function ensureImagenModelSelected(accessToken: string): Promise<string> {
   }
 
   // Fallback to Imagen-3
-  console.log(`\n⚠️  No Imagen-4 models available in ${location}`)
-  console.log(`   Falling back to: ${IMAGEN3_FALLBACK}`)
-  console.log(`   Note: You may need to enable Imagen-4 API in Google Cloud Console\n`)
+  console.log(`⚠️ No Imagen-4 available, using Imagen-3`)
   _selectedImagenModel = IMAGEN3_FALLBACK
   _lastModelCheck = Date.now()
   return _selectedImagenModel
@@ -234,9 +216,6 @@ export function createPlaceholderImage(prompt: string): string {
  */
 export async function generateImages(options: ImageGenerationOptions): Promise<string[]> {
   try {
-    console.log('📸 Starting image generation...')
-    console.log('📝 Prompt:', options.prompt.substring(0, 100) + '...')
-    
     // Try to use OAuth with service account credentials
     const { GoogleAuth } = await import('google-auth-library')
     
@@ -251,11 +230,6 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     if (!serviceAccountKey) {
       throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required')
     }
-    
-    console.log('🔐 Attempting OAuth authentication...')
-    console.log(`   Project: ${project}`)
-    console.log(`   Location: ${location}`)
-    console.log(`   Service Account: Using GOOGLE_SERVICE_ACCOUNT_KEY`);
     
     // Parse the service account key
     let credentials: any
@@ -278,9 +252,6 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       throw new Error('Failed to obtain access token from service account')
     }
     
-    console.log('✅ Access token obtained successfully')
-    console.log(`   Token prefix: ${accessToken.token.substring(0, 20)}...`)
-    
     // Select the best available Imagen model (prefer Imagen-4)
     const selectedModel = await ensureImagenModelSelected(accessToken.token)
 
@@ -297,9 +268,6 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     // Call Vertex AI Predict endpoint for the selected model
     const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${selectedModel}:predict`
 
-    console.log('🌐 Calling Vertex AI Predict endpoint...')
-    console.log(`   Endpoint: ${endpoint}`)
-
     const requestBody = {
       instances: [
         {
@@ -314,13 +282,11 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       },
     }
     
-    console.log('📦 Request body:', JSON.stringify(requestBody, null, 2))
-    
-    // Create an abort controller with 60-second timeout
+    // Create an abort controller with 45-second timeout (optimized for speed)
     const controller = new AbortController()
     const timeoutId = setTimeout(() => {
       controller.abort()
-    }, 60000) // 60 seconds for image generation
+    }, 45000) // 45 seconds for image generation
 
     try {
       const response = await fetch(endpoint, {
@@ -335,76 +301,54 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       
       clearTimeout(timeoutId)
       
-      console.log(`📡 Response status: ${response.status} ${response.statusText}`)
-      
       if (!response.ok) {
         const errorText = await response.text()
-        console.error('❌ Vertex AI API error response:', errorText)
+        console.error('🔴 API Failed:', response.status, errorText.substring(0, 200))
+        
         if (response.status === 429) {
-          console.warn('⚠️ Vertex AI quota exceeded (429). Returning placeholder image instead of error.')
+          // Quota exceeded - return placeholder silently
+          console.warn('⚠️ Quota exceeded')
           return [createPlaceholderImage(options.prompt)]
         }
+        
         throw new Error(`Vertex AI API error (${response.status}): ${errorText}`)
       }
       
       const data = await response.json()
-      console.log('📦 Response data structure:', JSON.stringify(data, null, 2))
       
       // Extract base64 images from response
       const images: string[] = []
       
       if (data.predictions && Array.isArray(data.predictions)) {
-        console.log(`🖼️  Found ${data.predictions.length} predictions`)
+        console.log(`📸 Got ${data.predictions.length} predictions from API`)
         for (let i = 0; i < data.predictions.length; i++) {
           const prediction = data.predictions[i]
           if (prediction.bytesBase64Encoded) {
-            console.log(`✅ Extracted image ${i + 1} (${prediction.bytesBase64Encoded.length} chars)`)
             // Add data URI prefix for PNG
             images.push(`data:image/png;base64,${prediction.bytesBase64Encoded}`)
-          } else {
-            console.warn(`⚠️ Prediction ${i + 1} missing bytesBase64Encoded field`)
           }
         }
-      } else {
-        console.error('❌ Response missing predictions array')
-        console.log('Response keys:', Object.keys(data))
       }
       
       if (images.length === 0) {
-        console.error('❌ No images extracted from Vertex AI response')
-        console.log('⚠️ Falling back to placeholder image')
+        console.warn('⚠️ No predictions in response, returning placeholder')
         return [createPlaceholderImage(options.prompt)]
       }
       
-      console.log(`✅ Successfully generated ${images.length} image(s)`)
+      console.log(`✅ Generated ${images.length} real images`)
       return images
     } finally {
       clearTimeout(timeoutId)
     }
     
   } catch (error: any) {
-    console.error('❌ Error in generateImages:', error)
-    console.error('Error details:', {
-      name: error?.name,
-      message: error?.message,
-      code: error?.code,
-      status: error?.status,
-      details: error?.details,
-      stack: error?.stack?.split('\n').slice(0, 3).join('\n'),
-    })
-
-    // On any error, log it and return a placeholder image so no user-facing error is shown
-    console.warn('Vertex AI generation error; returning placeholder image instead of throwing:', {
-      message: error?.message,
-      status: error?.status,
-      code: error?.code,
-    })
-
+    // Log the actual error so we can see what went wrong
+    console.error('🔴 generateImages error:', error?.message || error)
+    
+    // Return placeholder image on any error instead of throwing
     try {
       return [createPlaceholderImage(options.prompt)]
     } catch (e) {
-      // If placeholder generation fails for any reason, return an empty array to avoid throwing
-      console.error('Failed to create placeholder image:', (e as any)?.message || e)
       return []
     }
   }

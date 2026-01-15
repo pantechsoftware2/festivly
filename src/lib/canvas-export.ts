@@ -12,7 +12,7 @@ export interface ExportOptions {
 }
 
 /**
- * Add logo to canvas image (as watermark in corner)
+ * Add logo to canvas image (as watermark in corner) - Optimized for performance
  */
 export async function addLogoToImage(
   imageDataUrl: string,
@@ -20,88 +20,101 @@ export async function addLogoToImage(
   position: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' = 'bottom-right',
   logoSize: number = 80 // size in pixels
 ): Promise<string> {
-  return new Promise((resolve, reject) => {
-    try {
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      
-      if (!ctx) {
-        reject(new Error('Failed to get canvas context'))
-        return
-      }
+  // Validate inputs
+  if (!imageDataUrl || !logoUrl) {
+    throw new Error('Image and logo URLs are required')
+  }
 
+  // Helper function to load image with timeout
+  const loadImageWithTimeout = (src: string, timeout: number = 5000): Promise<HTMLImageElement> => {
+    return new Promise((resolve, reject) => {
       const img = new Image()
       img.crossOrigin = 'anonymous'
+      img.referrerPolicy = 'no-referrer'
+      
+      const timeoutId = setTimeout(() => {
+        reject(new Error('Image load timeout'))
+      }, timeout)
       
       img.onload = () => {
-        // Set canvas size to match image
-        canvas.width = img.width
-        canvas.height = img.height
-        
-        // Draw main image
-        ctx.drawImage(img, 0, 0)
-        
-        // Load and draw logo
-        const logo = new Image()
-        logo.crossOrigin = 'anonymous'
-        
-        logo.onload = () => {
-          const padding = 20
-          let x = padding
-          let y = padding
-          
-          // Calculate logo dimensions maintaining aspect ratio
-          const logoWidth = logoSize
-          const logoHeight = (logo.height / logo.width) * logoSize
-          
-          // Position calculation
-          switch (position) {
-            case 'top-left':
-              x = padding
-              y = padding
-              break
-            case 'top-right':
-              x = canvas.width - logoWidth - padding
-              y = padding
-              break
-            case 'bottom-left':
-              x = padding
-              y = canvas.height - logoHeight - padding
-              break
-            case 'bottom-right':
-              x = canvas.width - logoWidth - padding
-              y = canvas.height - logoHeight - padding
-              break
-          }
-          
-          // Add semi-transparent white background behind logo
-          ctx.fillStyle = 'rgba(255, 255, 255, 0.1)'
-          ctx.fillRect(x - 5, y - 5, logoWidth + 10, logoHeight + 10)
-          
-          // Draw logo
-          ctx.drawImage(logo, x, y, logoWidth, logoHeight)
-          
-          // Convert back to data URL
-          const resultDataUrl = canvas.toDataURL('image/png')
-          resolve(resultDataUrl)
-        }
-        
-        logo.onerror = () => {
-          reject(new Error('Failed to load logo image'))
-        }
-        
-        logo.src = logoUrl
+        clearTimeout(timeoutId)
+        resolve(img)
       }
       
       img.onerror = () => {
-        reject(new Error('Failed to load main image'))
+        clearTimeout(timeoutId)
+        reject(new Error('Failed to load image'))
       }
       
-      img.src = imageDataUrl
-    } catch (error) {
-      reject(error)
+      img.src = src
+    })
+  }
+
+  try {
+    // Load both images in parallel for better performance
+    const [mainImg, logoImg] = await Promise.all([
+      loadImageWithTimeout(imageDataUrl, 10000),
+      loadImageWithTimeout(logoUrl, 5000)
+    ])
+
+    // Create canvas and context
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    
+    if (!ctx) {
+      throw new Error('Failed to get canvas context')
     }
-  })
+
+    // Set canvas size to match main image
+    canvas.width = mainImg.width
+    canvas.height = mainImg.height
+
+    // Draw main image
+    ctx.drawImage(mainImg, 0, 0)
+
+    // Calculate logo position and dimensions
+    const padding = 20
+    const logoWidth = logoSize
+    const logoHeight = (logoImg.height / logoImg.width) * logoSize
+    
+    let x = padding
+    let y = padding
+    
+    switch (position) {
+      case 'top-left':
+        x = padding
+        y = padding
+        break
+      case 'top-right':
+        x = canvas.width - logoWidth - padding
+        y = padding
+        break
+      case 'bottom-left':
+        x = padding
+        y = canvas.height - logoHeight - padding
+        break
+      case 'bottom-right':
+        x = canvas.width - logoWidth - padding
+        y = canvas.height - logoHeight - padding
+        break
+    }
+
+    // Add semi-transparent white background behind logo for better visibility
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'
+    ctx.fillRect(x - 8, y - 8, logoWidth + 16, logoHeight + 16)
+    
+    // Draw logo on top
+    ctx.drawImage(logoImg, x, y, logoWidth, logoHeight)
+
+    // Convert canvas to data URL (PNG for lossless quality)
+    const resultDataUrl = canvas.toDataURL('image/png')
+    
+    return resultDataUrl
+  } catch (error) {
+    // Log error but don't throw - allow image to be downloaded without logo if logo fails
+    console.warn('⚠️ Logo addition failed:', error)
+    return imageDataUrl
+  }
 }
 
 /**
