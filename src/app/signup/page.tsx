@@ -20,6 +20,63 @@ const INDUSTRY_OPTIONS = [
   'Food & Cafe'
 ]
 
+// Supported MIME types by Supabase Storage
+const SUPPORTED_MIME_TYPES = [
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'image/svg+xml',
+  'image/tiff',
+  'image/bmp'
+]
+
+// Convert unsupported formats to JPEG
+const convertImageIfNeeded = async (file: File): Promise<File> => {
+  if (SUPPORTED_MIME_TYPES.includes(file.type)) {
+    return file
+  }
+
+  // For unsupported formats (like AVIF), convert to JPEG
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const img = new Image()
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          reject(new Error('Failed to get canvas context'))
+          return
+        }
+        ctx.drawImage(img, 0, 0)
+        canvas.toBlob(
+          (blob) => {
+            if (!blob) {
+              reject(new Error('Failed to convert image'))
+              return
+            }
+            const newFile = new File(
+              [blob],
+              file.name.replace(/\.[^/.]+$/, '.jpg'),
+              { type: 'image/jpeg' }
+            )
+            resolve(newFile)
+          },
+          'image/jpeg',
+          0.9
+        )
+      }
+      img.onerror = () => reject(new Error('Failed to load image'))
+      img.src = e.target?.result as string
+    }
+    reader.onerror = () => reject(new Error('Failed to read file'))
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function SignUp() {
   return (
     <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">Loading...</div>}>
@@ -63,14 +120,20 @@ function SignUpContent() {
         setError('Logo file must be less than 5MB')
         return
       }
-      setLogoFile(file)
-      setError(null)
-      // Create preview
-      const reader = new FileReader()
-      reader.onloadend = () => {
-        setLogoPreview(reader.result as string)
-      }
-      reader.readAsDataURL(file)
+      
+      // Convert unsupported formats to JPEG
+      convertImageIfNeeded(file).then((convertedFile) => {
+        setLogoFile(convertedFile)
+        setError(null)
+        // Create preview
+        const reader = new FileReader()
+        reader.onloadend = () => {
+          setLogoPreview(reader.result as string)
+        }
+        reader.readAsDataURL(convertedFile)
+      }).catch((err) => {
+        setError(`Failed to process image: ${err.message}`)
+      })
     }
   }
 
@@ -291,17 +354,7 @@ function SignUpContent() {
             </Button>
           </form>
 
-          <div className="space-y-3 mb-4 sm:mb-6">
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-xs">
-              <p className="font-semibold mb-1">📧 What happens next:</p>
-              <ol className="space-y-1 text-xs">
-                <li>1. Account created</li>
-                <li>2. Confirmation email sent</li>
-                <li>3. Click link in email to verify</li>
-                <li>4. Sign in and start designing!</li>
-              </ol>
-            </div>
-          </div>
+
 
           <div className="relative mb-4 sm:mb-6">
             <div className="absolute inset-0 flex items-center">
@@ -324,6 +377,18 @@ function SignUpContent() {
                 // Store industry in sessionStorage for after Google Sign-In callback
                 if (typeof window !== 'undefined') {
                   sessionStorage.setItem('pending_industry', industryType)
+                  // Mark this as a new signup (not an existing user login)
+                  sessionStorage.setItem('is_new_signup', 'true')
+                  // Also store logo file as base64 if selected
+                  if (logoFile) {
+                    const reader = new FileReader()
+                    reader.onloadend = () => {
+                      sessionStorage.setItem('pending_logo_base64', reader.result as string)
+                      sessionStorage.setItem('pending_logo_name', logoFile.name)
+                      sessionStorage.setItem('pending_logo_type', logoFile.type)
+                    }
+                    reader.readAsDataURL(logoFile)
+                  }
                 }
                 await signInWithGoogle()
               } catch (err: any) {

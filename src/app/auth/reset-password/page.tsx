@@ -17,7 +17,7 @@ function ResetPasswordContent() {
   const router = useRouter()
   const supabase = createClient()
 
-  // Check if user has valid session from reset link
+  // Check if user has valid session from reset link using PASSWORD_RECOVERY event
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -33,10 +33,29 @@ function ResetPasswordContent() {
       }
     }
 
+    // Listen for PASSWORD_RECOVERY event
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event)
+      if (event === 'PASSWORD_RECOVERY') {
+        // Password recovery link clicked - session is established
+        if (session?.user) {
+          setIsValidToken(true)
+        } else {
+          setIsValidToken(false)
+        }
+      }
+    })
+
     // Give Supabase time to process the hash
     const timer = setTimeout(checkSession, 500)
-    return () => clearTimeout(timer)
-  }, [])
+    
+    return () => {
+      clearTimeout(timer)
+      if (subscription?.unsubscribe) {
+        subscription.unsubscribe()
+      }
+    }
+  }, [supabase.auth])
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -27,23 +27,19 @@ function ForgotPasswordContent() {
     setError(null)
 
     try {
+      // Get the origin dynamically - this will be localhost:3000 for dev, festivly.vercel.app for prod
+      const origin = typeof window !== 'undefined' ? window.location.origin : ''
+      const redirectUrl = `${origin}/auth/reset-password`
+      
+      console.log('📧 Requesting password reset with redirect URL:', redirectUrl)
+      
       const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/reset-password`,
+        redirectTo: redirectUrl,
       })
 
       if (resetError) {
         console.error('Reset password error:', resetError)
-        
-        // Specific error messages
-        if (resetError.message.includes('sending recovery email')) {
-          setError('Email service error. Please ensure redirect URL is configured in Supabase Settings → Authentication → URL Configuration.')
-        } else if (resetError.message.includes('500') || resetError.message.includes('unable')) {
-          setError('Email service temporarily unavailable. Please try again in a few moments.')
-        } else if (resetError.message.includes('not found')) {
-          setError('No account found with this email address.')
-        } else {
-          setError(resetError.message || 'Unable to send reset email.')
-        }
+        setError('Unable to send reset email. Please try again later.')
       } else {
         setSuccess(true)
         setEmail('')
@@ -74,16 +70,10 @@ function ForgotPasswordContent() {
               <p className="mt-2 text-xs">If you don't see it, check your spam folder.</p>
             </div>
           )}
-
+  
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-3 sm:px-4 py-2 sm:py-3 rounded-lg mb-4 text-xs sm:text-sm">
-              <p className="font-semibold mb-1">❌ Error</p>
               <p>{error}</p>
-              {error.includes('URL Configuration') && (
-                <p className="mt-2 text-xs text-red-600">
-                  <strong>Fix:</strong> Supabase Dashboard → Settings → Authentication → URL Configuration → Add redirect URL
-                </p>
-              )}
             </div>
           )}
 
