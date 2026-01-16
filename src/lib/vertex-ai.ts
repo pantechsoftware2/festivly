@@ -216,26 +216,52 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     const location = process.env.GOOGLE_CLOUD_REGION || 'us-central1'
     const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
     
-    console.log(`🚀 Starting image generation`)
+    console.log(`\n🚀 Starting image generation`)
     console.log(`   Prompt: "${options.prompt.substring(0, 50)}..."`)
     console.log(`   Images: ${options.numberOfImages || 4}`)
     console.log(`   Project: ${project}`)
     console.log(`   Region: ${location}`)
     
+    // PRODUCTION CHECK: Validate all required env vars
     if (!project) {
+      console.error(`❌ GOOGLE_CLOUD_PROJECT_ID not set`)
       throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable is required')
+    }
+    
+    if (!location) {
+      console.error(`❌ GOOGLE_CLOUD_REGION not set`)
+      throw new Error('GOOGLE_CLOUD_REGION environment variable is required')
     }
 
     if (!serviceAccountKey) {
+      console.error(`❌ GOOGLE_SERVICE_ACCOUNT_KEY not set`)
       throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY environment variable is required')
     }
+    
+    console.log(`🔐 Service account key found (${serviceAccountKey.length} chars)`)
     
     // Parse the service account key
     let credentials: any
     try {
-      credentials = typeof serviceAccountKey === 'string' ? JSON.parse(serviceAccountKey) : serviceAccountKey
-    } catch (e) {
-      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON')
+      // Handle both string JSON and already-parsed objects
+      if (typeof serviceAccountKey === 'string') {
+        credentials = JSON.parse(serviceAccountKey)
+      } else if (typeof serviceAccountKey === 'object') {
+        credentials = serviceAccountKey
+      } else {
+        throw new Error(`Invalid service account key type: ${typeof serviceAccountKey}`)
+      }
+      
+      console.log(`✅ Service account parsed successfully`)
+      console.log(`   Project ID: ${credentials.project_id}`)
+      console.log(`   Service Account Email: ${credentials.client_email}`)
+    } catch (e: any) {
+      console.error(`❌ Failed to parse GOOGLE_SERVICE_ACCOUNT_KEY:`)
+      console.error(`   Error: ${e.message}`)
+      console.error(`   Type: ${typeof serviceAccountKey}`)
+      console.error(`   Length: ${serviceAccountKey?.length || 'undefined'}`)
+      console.error(`   First 100 chars: ${JSON.stringify(serviceAccountKey).substring(0, 100)}`)
+      throw new Error('GOOGLE_SERVICE_ACCOUNT_KEY is not valid JSON: ' + e.message)
     }
 
     // Initialize GoogleAuth with parsed credentials

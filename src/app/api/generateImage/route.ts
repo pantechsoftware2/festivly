@@ -79,6 +79,44 @@ export async function POST(request: NextRequest): Promise<NextResponse<GenerateI
 
 async function handleGenerateImage(request: NextRequest): Promise<NextResponse<GenerateImageResponse>> {
   try {
+    // Log environment variable status for debugging production issues
+    const hasProjectId = !!process.env.GOOGLE_CLOUD_PROJECT_ID
+    const hasServiceKey = !!process.env.GOOGLE_SERVICE_ACCOUNT_KEY
+    const hasSupabaseUrl = !!process.env.NEXT_PUBLIC_SUPABASE_URL
+    const hasSupabaseKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
+    
+    console.log(`\n📋 API REQUEST - Environment Status:`)
+    console.log(`   Google Project ID: ${hasProjectId ? '✅' : '❌'}`)
+    console.log(`   Google Service Key: ${hasServiceKey ? '✅' : '❌'}`)
+    console.log(`   Supabase URL: ${hasSupabaseUrl ? '✅' : '❌'}`)
+    console.log(`   Supabase Service Key: ${hasSupabaseKey ? '✅' : '❌'}`)
+    
+    if (!hasProjectId || !hasServiceKey) {
+      console.error(`🚨 PRODUCTION CONFIG ERROR: Missing Google Cloud credentials`)
+      return NextResponse.json(
+        {
+          success: false,
+          images: [],
+          prompt: '',
+          error: 'Server configuration error: Missing Google Cloud credentials. Please check environment variables.',
+        },
+        { status: 503 } // Service Unavailable
+      )
+    }
+    
+    if (!hasSupabaseUrl || !hasSupabaseKey) {
+      console.error(`🚨 PRODUCTION CONFIG ERROR: Missing Supabase credentials`)
+      return NextResponse.json(
+        {
+          success: false,
+          images: [],
+          prompt: '',
+          error: 'Server configuration error: Missing Supabase credentials. Please check environment variables.',
+        },
+        { status: 503 } // Service Unavailable
+      )
+    }
+
     const body: GenerateImageRequest = await request.json()
     const { eventId, prompt: userPrompt, userId } = body
 
