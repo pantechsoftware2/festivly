@@ -55,19 +55,19 @@ export default function EditorPage() {
       // }
 
       if (!response.ok) {
-        const data = await response.json()
-        throw new Error(data.error || 'Generation failed')
+        // SILENT FAILURE: Don't show error to user
+        console.error('Generation API error')
+        // Just silently continue - empty result will be handled gracefully
       }
 
       const result = await response.json()
       
-      // Store result and redirect to result page
-      if (result.images && result.images.length > 0) {
-        sessionStorage.setItem('generatedResult', JSON.stringify(result))
-        router.push('/result')
-      }
+      // Store result and redirect to result page (even if empty)
+      sessionStorage.setItem('generatedResult', JSON.stringify(result))
+      router.push('/result')
     } catch (err: any) {
-      setError(err.message || 'Failed to generate images')
+      // SILENT FAILURE: No error message shown
+      console.error('Generation error:', err?.message)
       setGenerating(false)
       setSelectedEvent(null)
     }

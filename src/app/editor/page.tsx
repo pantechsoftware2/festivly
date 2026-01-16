@@ -192,26 +192,23 @@ function EditorPageContent() {
       return
     }
 
-    // Check image generation limit BEFORE starting generation
-    try {
-      const supabase = createClient()
-
-      const limitInfo = await checkImageLimit(user.id, supabase)
-      setImagesGenerated(limitInfo.imagesGenerated)
-      setImagesRemaining(limitInfo.imagesRemaining)
-
-      // HARD BLOCK: If user has already generated ANY images and is on free plan, prevent generation
-      // Free users get ONE free generation (4 images), then must upgrade
-      if (limitInfo.imagesGenerated >= 1 && limitInfo.subscription === 'free') {
-        console.log('⚠️ Free user already used their free generation. Showing upgrade modal.')
-        setShowUpgradeModal(true)
-        return // STOP - Do not proceed with generation
-      }
-    } catch (err) {
-      console.error('Error checking image limit:', err)
-      setError('Could not verify image limit. Please try again.')
-      return // STOP on error - don't proceed
-    }
+    // DISABLED: All users get unlimited free generations (pricing logic commented out)
+    // try {
+    //   const supabase = createClient()
+    //   const limitInfo = await checkImageLimit(user.id, supabase)
+    //   setImagesGenerated(limitInfo.imagesGenerated)
+    //   setImagesRemaining(limitInfo.imagesRemaining)
+    //   // HARD BLOCK: If user has already generated ANY images and is on free plan, prevent generation
+    //   if (limitInfo.imagesGenerated >= 1 && limitInfo.subscription === 'free') {
+    //     console.log('⚠️ Free user already used their free generation. Showing upgrade modal.')
+    //     setShowUpgradeModal(true)
+    //     return
+    //   }
+    // } catch (err) {
+    //   console.error('Error checking image limit:', err)
+    //   setError('Could not verify image limit. Please try again.')
+    //   return
+    // }
 
     setGenerating(true)
     setError(null)
@@ -257,11 +254,10 @@ function EditorPageContent() {
         throw new Error('Invalid response format from server')
       }
 
-      // Check for quota exceeded error
-      if (responseData?.error && responseData.error.includes('quota')) {
-        console.warn('⚠️ Quota exceeded but continuing:', responseData.error)
-        // Don't show error, let it continue
-      }
+      // GRACEFUL FAILURE: Silently handle errors without showing to user
+      // if (responseData?.error && responseData.error.includes('quota')) {
+      //   console.warn('⚠️ Quota exceeded but continuing:', responseData.error)
+      // }
 
       // Validate success response with images
       if (responseData?.success && responseData?.images && Array.isArray(responseData.images) && responseData.images.length > 0) {
@@ -299,25 +295,21 @@ function EditorPageContent() {
         return
       }
 
-      // Check for API error response (but NEVER 402 - already returned above)
-      if (responseData?.error) {
-        console.error('❌ API error:', responseData.error)
-        throw new Error(responseData.error)
+      // GRACEFUL FAILURE: No images - show blank result page instead of error
+      if (!responseData?.images || responseData.images.length === 0) {
+        console.log('⚠️ No images generated - server returned empty result')
+        // Silently show empty result instead of error
+        setResult({ images: [] })
+        setGenerating(false)
+        return
       }
 
-      // No images in response
-      console.error('❌ No images in response:', responseData)
-      throw new Error('No images generated. Please try again.')
+      // No other errors - user won't see messages
     } catch (err: any) {
-      // Handle AbortError separately
-      if (err.name === 'AbortError') {
-        console.error('❌ Request timeout - generation took too long')
-        setError('Generation took too long. Please try again.')
-      } else {
-        const errorMsg = err instanceof Error ? err.message : 'Unknown error'
-        console.error('❌ Generation failed:', errorMsg)
-        setError(errorMsg)
-      }
+      // SILENT FAILURE: Don't show any error messages to users
+      console.error('Generation error:', err?.message)
+      // Just show empty result
+      setResult({ images: [] })
       setGenerating(false)
     }
   }
