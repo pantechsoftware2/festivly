@@ -291,11 +291,7 @@ export default function ResultPage() {
             const logoImg = await loadImageWithTimeout(logoUrl, 5000)
             
             if (logoImg.width > 0 && logoImg.height > 0) {
-              // Add subtle background for logo visibility
-              ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'
-              ctx.fillRect(logoX - 6, logoY - 6, logoSize + 12, logoSize + 12)
-              
-              // Draw logo
+              // Draw logo directly without background frame
               ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
             }
           } catch (logoErr) {

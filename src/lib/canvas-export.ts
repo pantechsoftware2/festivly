@@ -99,11 +99,7 @@ export async function addLogoToImage(
         break
     }
 
-    // Add semi-transparent white background behind logo for better visibility
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.15)'
-    ctx.fillRect(x - 8, y - 8, logoWidth + 16, logoHeight + 16)
-    
-    // Draw logo on top
+    // Draw logo directly without background frame
     ctx.drawImage(logoImg, x, y, logoWidth, logoHeight)
 
     // Convert canvas to data URL (PNG for lossless quality)
