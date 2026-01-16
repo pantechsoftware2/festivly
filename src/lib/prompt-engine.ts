@@ -18,36 +18,47 @@ export const eventKeywords = {
   "Republic Day": "Indian tricolor flag, ashoka chakra, saffron and green smoke, patriotic, India Gate silhouette, lions, national pride, honor"
 }
 
+export const eventMessages = {
+  "Lohri": "warmth, celebration, togetherness, harvest joy",
+  "Makar Sankranti": "freedom, hope, aspiration, new beginnings",
+  "Republic Day": "patriotism, pride, unity, national spirit"
+}
+
 /**
  * Generate dynamic prompt for Imagen-4
  * @param event - Event name (e.g., "Republic Day")
  * @param industry - Industry type (e.g., "Education")
- * @returns Complete prompt string
  */
 export function generatePrompt(event: string, industry: string): string {
   const indKeywords = industryKeywords[industry as keyof typeof industryKeywords] || industryKeywords["Education"]
   const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"]
+  const evtMessage = eventMessages[event as keyof typeof eventMessages] || eventMessages["Republic Day"]
 
   const prompt = `Create a stunning, high-quality, professional social media image for ${event}. The brand is in the ${industry} sector.
 
 Visual Composition:
-- Modern, vibrant, eye-catching professional design
+- Modern, vibrant, eye-catching professional design optimized for social media ads
 - Seamlessly blend: ${indKeywords}
 - Incorporate: ${evtKeywords}
 - Composition: balanced, professional, premium quality
-- Resolution: optimized for 1080x1350 aspect ratio
-- Colors: saturated, vibrant, professional palette
+- Resolution: optimized for 1080x1350 aspect ratio (perfect for Instagram Stories, Feed, LinkedIn)
+- Colors: saturated, vibrant, professional palette that stands out in social feeds
 - Detail level: high detail, sharp focus, professional photography quality
 
-Design Requirements:
-- Suitable for Instagram Stories, Feed, and LinkedIn
+Marketing Design Requirements:
+- Suitable for Instagram Stories, Feed, Reels, and LinkedIn professional posts
 - Clean, uncluttered composition with NO external text or labels
 - NO watermarks, logos, or text overlays of any kind
 - NO emojis, badges, or decorative text elements
 - NO white frames, borders, or background shapes
 - Cultural authenticity mixed with modern design trends
+- Visual hierarchy that draws attention and creates engagement
 - Reserve bottom-right corner (15% space) for brand logo overlay (empty space only)
-- Premium color grading and lighting
+- Premium color grading and professional lighting (cinematic quality)
+- Evoke the emotion: "${evtMessage}"
+
+Industry-Specific Visual Focus (${industry}):
+${industry === "Education" ? "- Include aspirational, forward-thinking visuals\n- Showcase growth, learning, and achievement\n- Use bright, motivating color palettes" : industry === "Real Estate" ? "- Showcase architectural elegance and spacious design\n- Include lifestyle imagery with families/professionals\n- Emphasize trust, comfort, and investment value" : industry === "Tech & Startup" ? "- Use geometric, modern visual elements\n- Emphasize innovation and cutting-edge design\n- Create futuristic, sleek aesthetic" : industry === "Manufacturing" ? "- Showcase precision, quality craftsmanship\n- Include industrial excellence and reliability\n- Emphasize strength and durability" : industry === "Retail & Fashion" ? "- Display trendy, aspirational lifestyle\n- Showcase products in elegant settings\n- Create desire and exclusivity" : "- Focus on warmth, hospitality, and appeal\n- Showcase food quality and atmosphere\n- Emphasize comfort and experience"}
 
 Critical Requirements:
 - Generate ONLY photograph/artwork without ANY text elements

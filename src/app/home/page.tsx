@@ -45,14 +45,14 @@ export default function EditorPage() {
         }),
       })
 
-      // Check for 402 Payment Required response
-      if (response.status === 402) {
-        console.warn('⚠️ Upgrade required (402)')
-        setGenerating(false)
-        setSelectedEvent(null)
-        setShowUpgradeModal(true)
-        return // Don't continue
-      }
+      // Check for 402 Payment Required response (DISABLED FOR NOW)
+      // if (response.status === 402) {
+      //   console.warn('⚠️ Upgrade required (402)')
+      //   setGenerating(false)
+      //   setSelectedEvent(null)
+      //   setShowUpgradeModal(true)
+      //   return // Don't continue
+      // }
 
       if (!response.ok) {
         const data = await response.json()

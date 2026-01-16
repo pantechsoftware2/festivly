@@ -239,14 +239,14 @@ function EditorPageContent() {
       console.log(`📡 Response received in ${elapsed}ms`)
 
       // Check status BEFORE parsing JSON to avoid ReadableStream lock errors
-      // CRITICAL: 402 = Payment Required = Free user limit reached
-      if (response.status === 402) {
-        console.warn('⚠️ Upgrade required (402)')
-        console.log('📈 Showing pricing modal - free user hit limit')
-        setGenerating(false)
-        setShowUpgradeModal(true)
-        return // MUST RETURN - DO NOT PARSE RESPONSE BODY
-      }
+      // CRITICAL: 402 = Payment Required = Free user limit reached (DISABLED FOR NOW)
+      // if (response.status === 402) {
+      //   console.warn('⚠️ Upgrade required (402)')
+      //   console.log('📊 Showing pricing modal - free user hit limit')
+      //   setGenerating(false)
+      //   setShowUpgradeModal(true)
+      //   return // MUST RETURN - DO NOT PARSE RESPONSE BODY
+      // }
 
       // ONLY parse JSON if NOT 402 (402 has already returned above)
       let responseData: any = null
@@ -267,21 +267,21 @@ function EditorPageContent() {
       if (responseData?.success && responseData?.images && Array.isArray(responseData.images) && responseData.images.length > 0) {
         console.log(`✅ Generation successful! Got ${responseData.images.length} images`)
         
-        // Show pricing modal after 1st generation for free users
-        if (responseData?.showPricingModal) {
-          console.log('📈 Showing pricing modal after 1st free generation')
-          setShowUpgradeModal(true)
-          // Store result but DON'T redirect - let user see pricing modal
-          setResult(responseData)
-          
-          try {
-            sessionStorage.setItem('generatedResult', JSON.stringify(responseData))
-            localStorage.setItem('lastGeneratedResult', JSON.stringify(responseData))
-          } catch (e) {
-            console.warn('⚠️ Storage error:', e)
-          }
-          return
-        }
+        // Show pricing modal after 1st generation for free users (DISABLED FOR NOW)
+        // if (responseData?.showPricingModal) {
+        //   console.log('📊 Showing pricing modal after 1st free generation')
+        //   setShowUpgradeModal(true)
+        //   // Store result but DON'T redirect - let user see pricing modal
+        //   setResult(responseData)
+        //   
+        //   try {
+        //     sessionStorage.setItem('generatedResult', JSON.stringify(responseData))
+        //     localStorage.setItem('lastGeneratedResult', JSON.stringify(responseData))
+        //   } catch (e) {
+        //     console.warn('⚠️ Storage error:', e)
+        //   }
+        //   return
+        // }
         
         // Store result
         setResult(responseData)

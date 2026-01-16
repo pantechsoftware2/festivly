@@ -231,20 +231,20 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       }
     }
 
-    // SERVER-SIDE LIMIT CHECK: Hard block free users who exceeded limit
+    // SERVER-SIDE LIMIT CHECK: Hard block free users who exceeded limit (DISABLED FOR NOW)
     // Free users get ONE free generation (4 images per generation), then must upgrade
-    if (userId && userSubscription === 'free' && imagesGenerated >= 1) {
-      console.warn(`🚫 BLOCKED: User ${userId} attempted generation but already used free quota (${imagesGenerated} generation(s) done)`)
-      return NextResponse.json(
-        {
-          success: false,
-          images: [],
-          prompt: '',
-          error: 'UPGRADE_REQUIRED',
-        },
-        { status: 402 } // Payment Required
-      )
-    }
+    // if (userId && userSubscription === 'free' && imagesGenerated >= 1) {
+    //   console.warn(`🚫 BLOCKED: User ${userId} attempted generation but already used free quota (${imagesGenerated} generation(s) done)`)
+    //   return NextResponse.json(
+    //     {
+    //       success: false,
+    //       images: [],
+    //       prompt: '',
+    //       error: 'UPGRADE_REQUIRED',
+    //     },
+    //     { status: 402 } // Payment Required
+    //   )
+    // }
 
     // Generate prompt based on event or user input
     let finalPrompt = userPrompt
@@ -322,11 +322,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.log(`   Placeholder SVG images: ${placeholderCount}`)
       
       if (placeholderCount > 0 && realImageCount === 0) {
-        // ALL images are placeholders - API failed
-        console.error(`🚨 CRITICAL: All ${placeholderCount} images are placeholders - API generation failed`)
-        console.error(`   This indicates: API error, quota exceeded, or service account auth failed`)
-        console.error(`   Check Vercel logs for detailed error messages`)
-        
+        // ALL images are placeholders - API failed silently
         // Return empty images gracefully - no error shown to user
         return NextResponse.json(
           {
@@ -462,38 +458,38 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.log(`   ${idx + 1}. ${type}: ${img.url.substring(0, 80)}...`)
     })
 
-    // INCREMENT COUNTER: Increment free user's generation count after successful generation
+    // INCREMENT COUNTER: Increment free user's generation count after successful generation (DISABLED FOR NOW)
     // This tracks how many times they've generated (not how many images)
     // CRITICAL: Use database-level atomic update to prevent race conditions in production
-    if (userId && userSubscription === 'free' && imagesGenerated === 0) {
-      try {
-        const supabase = getSupabaseClient()
-        
-        // Use RPC or direct update with WHERE clause to ensure atomicity
-        // Only increment if still at 0 to prevent race condition
-        const { error: updateError, data: updateData } = await supabase
-          .from('profiles')
-          .update({ free_images_generated: 1 })
-          .eq('id', userId)
-          .eq('free_images_generated', 0) // Only update if still at 0
-          .select('free_images_generated')
-        
-        if (updateError) {
-          console.error('❌ Failed to update generation count:', updateError?.message)
-        } else if (updateData && updateData.length > 0) {
-          console.log(`✅ Updated user ${userId} generation count: 0 → 1`)
-        } else {
-          // Update failed because free_images_generated was not 0 (someone else incremented)
-          console.warn(`⚠️ Could not increment user ${userId} - already incremented by another request`)
-        }
-      } catch (err: any) {
-        console.error('❌ Failed to update generation count:', err?.message)
-        // Don't block the response if increment fails - images already generated
-      }
-    }
+    // if (userId && userSubscription === 'free' && imagesGenerated === 0) {
+    //   try {
+    //     const supabase = getSupabaseClient()
+    //     
+    //     // Use RPC or direct update with WHERE clause to ensure atomicity
+    //     // Only increment if still at 0 to prevent race condition
+    //     const { error: updateError, data: updateData } = await supabase
+    //       .from('profiles')
+    //       .update({ free_images_generated: 1 })
+    //       .eq('id', userId)
+    //       .eq('free_images_generated', 0) // Only update if still at 0
+    //       .select('free_images_generated')
+    //     
+    //     if (updateError) {
+    //       console.error('❌ Failed to update generation count:', updateError?.message)
+    //     } else if (updateData && updateData.length > 0) {
+    //       console.log(`✅ Updated user ${userId} generation count: 0 → 1`)
+    //     } else {
+    //       // Update failed because free_images_generated was not 0 (someone else incremented)
+    //       console.warn(`⚠️ Could not increment user ${userId} - already incremented by another request`)
+    //     }
+    //   } catch (err: any) {
+    //     console.error('❌ Failed to update generation count:', err?.message)
+    //     // Don't block the response if increment fails - images already generated
+    //   }
+    // }
 
-    // Check if free user - show pricing modal after 1st generation
-    const showPricingModal = userSubscription === 'free' && imagesGenerated === 0
+    // Check if free user - show pricing modal after 1st generation (DISABLED FOR NOW)
+    // const showPricingModal = userSubscription === 'free' && imagesGenerated === 0
 
     return NextResponse.json({
       success: true,
@@ -501,7 +497,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       prompt: finalPrompt,
       eventName: eventName,
       industry: userIndustry,
-      showPricingModal: showPricingModal,
+      // showPricingModal: showPricingModal,
     })
   } catch (error: any) {
     console.error('Generation error:', error?.message)
