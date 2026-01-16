@@ -98,9 +98,8 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
           success: false,
           images: [],
           prompt: '',
-          error: 'Server configuration error: Missing Google Cloud credentials. Please check environment variables.',
         },
-        { status: 503 } // Service Unavailable
+        { status: 500 }
       )
     }
     
@@ -111,9 +110,8 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
           success: false,
           images: [],
           prompt: '',
-          error: 'Server configuration error: Missing Supabase credentials. Please check environment variables.',
         },
-        { status: 503 } // Service Unavailable
+        { status: 500 }
       )
     }
 
@@ -324,19 +322,19 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.log(`   Placeholder SVG images: ${placeholderCount}`)
       
       if (placeholderCount > 0 && realImageCount === 0) {
-        // ALL images are placeholders - API failed, return error to user
+        // ALL images are placeholders - API failed
         console.error(`🚨 CRITICAL: All ${placeholderCount} images are placeholders - API generation failed`)
         console.error(`   This indicates: API error, quota exceeded, or service account auth failed`)
         console.error(`   Check Vercel logs for detailed error messages`)
         
+        // Return empty images - no error message shown to user
         return NextResponse.json(
           {
             success: false,
             images: [],
             prompt: finalPrompt,
-            error: 'Image generation service temporarily unavailable. Please check your Google Cloud credentials and quotas in Vercel settings.',
           },
-          { status: 503 } // Service Unavailable
+          { status: 500 }
         )
       }
       
@@ -368,17 +366,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.error('❌ Image generation error:', genError?.message)
       console.error('   Stack:', genError?.stack)
       
-      // Return error response to user instead of silent placeholders
-      console.error('🚨 Returning error response to frontend')
-      
+      // Return empty images - no error message shown to user
       return NextResponse.json(
         {
           success: false,
           images: [],
           prompt: finalPrompt,
-          error: `Image generation failed: ${genError?.message || 'Unknown error'}. Check Vercel environment variables.`,
         },
-        { status: 503 } // Service Unavailable
+        { status: 500 }
       )
     }
 
