@@ -398,13 +398,6 @@ export default function ResultPage() {
     }
   }
 
-  // Redirect to home if no images (top-level hook, not conditional)
-  useEffect(() => {
-    if (!loading && (!result || !result.images || result.images.length === 0)) {
-      router.push('/home')
-    }
-  }, [loading, result, router])
-
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
@@ -417,7 +410,10 @@ export default function ResultPage() {
   }
 
   if (!result || !result.images || result.images.length === 0) {
-    // Already redirecting via useEffect above
+    // No images - silently redirect to home
+    useEffect(() => {
+      router.push('/home')
+    }, [router])
     return null
   }
 
@@ -474,14 +470,14 @@ export default function ResultPage() {
           {/* Generated Images Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
             {result.images.map((image, index) => (
-              <Card key={image.id} className="bg-slate-800/50 border-purple-500/30 overflow-hidden">
-                <div className="aspect-square bg-slate-900 relative group">
+              <div key={image.id} className="overflow-hidden">
+                <div className="aspect-square relative group">
                   {imagesWithLogo[image.id] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={imagesWithLogo[image.id]}
                       alt={`Generated image ${index + 1} with logo`}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover border-0"
                       crossOrigin="anonymous"
                       onError={(e) => {
                         e.currentTarget.src = image.url
@@ -517,13 +513,7 @@ export default function ResultPage() {
                     </div>
                   )}
                 </div>
-                <div className="p-4">
-                  <p className="text-white text-sm">Image {index + 1}</p>
-                  <p className="text-purple-200/60 text-xs">
-                    {imagesWithLogo[image.id] ? '✅ Logo included' : '⏳ Applying logo...'}
-                  </p>
-                </div>
-              </Card>
+              </div>
             ))}
           </div>
 
