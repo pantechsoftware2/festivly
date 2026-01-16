@@ -34,42 +34,52 @@ export function generatePrompt(event: string, industry: string): string {
   const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"]
   const evtMessage = eventMessages[event as keyof typeof eventMessages] || eventMessages["Republic Day"]
 
-  const prompt = `Create a stunning, high-quality, professional social media image for ${event}. The brand is in the ${industry} sector.
+  const prompt = `Create a stunning, high-quality, professional social media image celebrating ${event}. The brand is in the ${industry} sector.
+
+PRIMARY EVENT THEME (MUST BE DOMINANT):
+This image MUST prominently feature ${event} celebration elements:
+${evtKeywords}
+
+CRITICAL: The image must be VISIBLY and UNMISTAKABLY about ${event}. Do NOT create generic corporate photos. The event theme must dominate the composition (60-70% of visual focus).
+
+Secondary Industry Context (${industry}):
+Subtly blend these industry elements to support the ${industry} brand:
+${indKeywords}
 
 Visual Composition:
-- Modern, vibrant, eye-catching professional design optimized for social media ads
-- Seamlessly blend: ${indKeywords}
-- Incorporate: ${evtKeywords}
-- Composition: balanced, professional, premium quality
-- Resolution: optimized for 1080x1350 aspect ratio (perfect for Instagram Stories, Feed, LinkedIn)
-- Colors: saturated, vibrant, professional palette that stands out in social feeds
-- Detail level: high detail, sharp focus, professional photography quality
-
-Marketing Design Requirements:
-- Suitable for Instagram Stories, Feed, Reels, and LinkedIn professional posts
-- Clean, uncluttered composition with NO external text or labels
-- NO watermarks, logos, or text overlays of any kind
-- NO emojis, badges, or decorative text elements
-- NO white frames, borders, or background shapes
-- Cultural authenticity mixed with modern design trends
-- Visual hierarchy that draws attention and creates engagement
+- VIBRANT, festive, celebration-focused design for ${event}
+- Bold, dynamic, eye-catching composition optimized for social media
+- Modern professional style with cultural authenticity
+- Resolution: optimized for 1080x1350 aspect ratio (Instagram Stories, Feed, LinkedIn)
+- Colors: SATURATED, VIBRANT palette that stands out and reflects the event mood
+- Detail level: high detail, sharp focus, premium photography quality
+- Professional lighting with cinematic quality
 - Reserve bottom-right corner (15% space) for brand logo overlay (empty space only)
-- Premium color grading and professional lighting (cinematic quality)
-- Evoke the emotion: "${evtMessage}"
 
-Industry-Specific Visual Focus (${industry}):
-${industry === "Education" ? "- Include aspirational, forward-thinking visuals\n- Showcase growth, learning, and achievement\n- Use bright, motivating color palettes" : industry === "Real Estate" ? "- Showcase architectural elegance and spacious design\n- Include lifestyle imagery with families/professionals\n- Emphasize trust, comfort, and investment value" : industry === "Tech & Startup" ? "- Use geometric, modern visual elements\n- Emphasize innovation and cutting-edge design\n- Create futuristic, sleek aesthetic" : industry === "Manufacturing" ? "- Showcase precision, quality craftsmanship\n- Include industrial excellence and reliability\n- Emphasize strength and durability" : industry === "Retail & Fashion" ? "- Display trendy, aspirational lifestyle\n- Showcase products in elegant settings\n- Create desire and exclusivity" : "- Focus on warmth, hospitality, and appeal\n- Showcase food quality and atmosphere\n- Emphasize comfort and experience"}
+Design Requirements:
+- MUST include clear ${event} visual elements (no generic photos!)
+- Suitable for Instagram Stories, Feed, Reels, and LinkedIn professional posts
+- Clean composition with NO external text or labels
+- NO watermarks, logos, or text overlays
+- NO emojis, badges, or decorative text
+- NO white frames or background shapes
+- Cultural authenticity mixed with modern design trends
+- Strong visual hierarchy that creates engagement
 
-Critical Requirements:
-- Generate ONLY photograph/artwork without ANY text elements
-- Do NOT include event name, brand name, or any text on the image
-- Do NOT add decorative frames or white background areas
-- Do NOT include any external labels or emoji-like elements
-- Clean, raw image suitable for professional business advertising
-- Suitable for LinkedIn and Instagram business posts
+Mood & Emotion:
+- Evoke the feeling: ${evtMessage}
+- ${event} celebration spirit
+- Professional yet celebratory
+- Inspiring and engaging for social media
 
-Style: Professional, polished, premium quality - suitable for corporate marketing.
-Photography style: high-quality stock photography or realistic AI-generated art.`
+Style Guidelines:
+- Professional, polished, premium quality suitable for corporate ${industry} marketing
+- Photography style: high-quality stock photography or realistic AI-generated art
+- Cultural imagery: authentic representation of ${event}
+- NO generic business portraits or corporate people photos
+- MUST show ${event} context/elements clearly
+
+FINAL CHECK: Does this image clearly show ${event}? If no, regenerate. This is NOT a generic corporate photo.`
 
   return prompt
 }
