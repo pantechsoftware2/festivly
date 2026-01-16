@@ -43,27 +43,22 @@ export default function ResultPage() {
     }
   }, [user, authLoading, router])
 
-  // Increment image generation count on first generation
-  useEffect(() => {
-    if (!user?.id) return
-
-    const incrementCount = async () => {
-      try {
-        const supabase = createClient()
-
-        // ✅ DO NOT INCREMENT HERE - API already incremented in generateImage/route.ts
-        // This check is just to log the updated count
-        const limitInfo = await checkImageLimit(user.id, supabase)
-        if (limitInfo.subscription === 'free') {
-          console.log(`✅ Image generation recorded. Total: ${limitInfo.imagesGenerated}/1`)
-        }
-      } catch (err) {
-        console.error('Error checking image count:', err)
-      }
-    }
-
-    incrementCount()
-  }, [user?.id, result])
+  // DISABLED: Attempt counting removed - all users get unlimited free generations
+  // useEffect(() => {
+  //   if (!user?.id) return
+  //   const incrementCount = async () => {
+  //     try {
+  //       const supabase = createClient()
+  //       const limitInfo = await checkImageLimit(user.id, supabase)
+  //       if (limitInfo.subscription === 'free') {
+  //         console.log(`✅ Image generation recorded. Total: ${limitInfo.imagesGenerated}/1`)
+  //       }
+  //     } catch (err) {
+  //       console.error('Error checking image count:', err)
+  //     }
+  //   }
+  //   incrementCount()
+  // }, [user?.id, result])
 
   // Default anonymous logo URL for users without custom logo
   const DEFAULT_LOGO_URL = 'https://adzndcsprxemlpgvcmsg.supabase.co/storage/v1/object/public/brand-logos/default-logo.png'
@@ -415,22 +410,11 @@ export default function ResultPage() {
   }
 
   if (!result || !result.images || result.images.length === 0) {
-    // No images - silently redirect to home without showing any message
-    return (
-      <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
-        <Header />
-        <div className="pt-32 pb-20 px-4 text-center">
-          <div className="space-y-4">
-            <Button 
-              onClick={() => router.push('/home')}
-              className="bg-purple-600 hover:bg-purple-700"
-            >
-              Back to Home
-            </Button>
-          </div>
-        </div>
-      </main>
-    )
+    // No images - silently redirect to home
+    useEffect(() => {
+      router.push('/home')
+    }, [router])
+    return null
   }
 
   return (
