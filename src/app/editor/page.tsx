@@ -50,18 +50,27 @@ function EditorPageContent() {
     const cacheKey = `logo_${userId}`
     
     // Check cache first (5 minute TTL)
-    const cached = localStorage.getItem(cacheKey)
-    if (cached) {
-      try {
-        const { url, timestamp } = JSON.parse(cached)
-        const age = Date.now() - timestamp
-        if (age < 5 * 60 * 1000) {
-          console.log('📦 Logo from cache')
-          return url || null
+    // BUT: For Google users just signed up, skip cache to get fresh logo from callback
+    const isNewGoogleUser = user?.app_metadata?.provider === 'google' && 
+                            user?.created_at && 
+                            (Date.now() - new Date(user.created_at).getTime()) < 60000 // Within 60 seconds
+    
+    if (!isNewGoogleUser) {
+      const cached = localStorage.getItem(cacheKey)
+      if (cached) {
+        try {
+          const { url, timestamp } = JSON.parse(cached)
+          const age = Date.now() - timestamp
+          if (age < 5 * 60 * 1000) {
+            console.log('📦 Logo from cache')
+            return url || null
+          }
+        } catch (e) {
+          localStorage.removeItem(cacheKey)
         }
-      } catch (e) {
-        localStorage.removeItem(cacheKey)
       }
+    } else {
+      console.log('🆕 Fresh Google user detected, fetching logo without cache')
     }
 
     // Fetch with timeout
@@ -79,7 +88,7 @@ function EditorPageContent() {
       const profile = await response.json()
       const logoUrl = profile?.brand_logo_url || null
       
-      // Cache the result
+      // Cache the result (but not for new Google users, or cache aggressively)
       try {
         localStorage.setItem(cacheKey, JSON.stringify({
           url: logoUrl,
@@ -164,6 +173,14 @@ function EditorPageContent() {
     // Check auth state
     if (!user?.id) {
       setError('Please log in to generate images')
+      return
+    }
+
+    // CRITICAL: Wait for logo to finish loading before generating
+    // Especially important for Google users where logo is uploaded in callback
+    if (logoFetching) {
+      console.warn('⏳ Logo still loading, please wait...')
+      setError('Loading your logo... please try again in a moment')
       return
     }
 
@@ -626,10 +643,11 @@ function EditorPageContent() {
 
                 <Button
                   onClick={handleGenerateImage}
-                  disabled={!prompt.trim() || generating}
-                  className="w-full bg-black hover:bg-gray-900 text-white font-semibold py-2.5 rounded-lg"
+                  disabled={!prompt.trim() || generating || logoFetching}
+                  className="w-full bg-black hover:bg-gray-900 text-white font-semibold py-2.5 rounded-lg disabled:opacity-50"
+                  title={logoFetching ? "Loading your logo... please wait" : ""}
                 >
-                  {generating ? '⏳ Generating...' : '🚀 Generate'}
+                  {generating ? '⏳ Generating...' : logoFetching ? '📦 Loading logo...' : '🚀 Generate'}
                 </Button>
               </div>
             </div>
