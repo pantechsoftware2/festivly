@@ -51,6 +51,8 @@ Layout:
 - Professional, vibrant composition optimized for 1080x1350 (Instagram Stories, Feed, LinkedIn)
 - Keep the bottom-right corner empty (negative space) for logo overlay
 - Balanced, eye-catching design with premium color grading
+- NO borders, frames, or decorative edges around the image
+- Full bleed design that extends edge to edge
 
 Text: 
 - Include headline: "${headline}" (max 5 words, legible and prominent)
@@ -65,13 +67,16 @@ Content Requirements:
 - Professional photography or realistic AI-generated art
 - High detail, sharp focus, saturated colors
 - Premium lighting and cinematic quality
+- Clean, professional look without decorative borders or frames
 
 Design Guidelines:
 - Must be unmistakably about ${event}
 - Industry elements should enhance, not dominate
 - Clean composition with clear visual hierarchy
 - Suitable for professional business marketing
-- Text must be legible at thumbnail size`
+- Text must be legible at thumbnail size
+- CRITICAL: Remove any decorative borders, frames, or ornamental edges
+- Image must fill entire canvas without white space or colored borders`
 
   return prompt
 }
