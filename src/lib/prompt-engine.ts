@@ -42,41 +42,13 @@ export function generatePrompt(event: string, industry: string): string {
   }
   const headline = eventHeadlines[event] || "Celebrate This Special Event"
 
-  const prompt = `Create a high-quality social media image for ${event}. The brand is in the ${industry} sector.
+  const prompt = `Professional social media post for ${event} celebration. Brand: ${industry} sector.
 
-Visual Style: 
-Use elements like ${indKeywords} combined with ${evtKeywords}.
+Visual: ${indKeywords}. Featured elements: ${evtKeywords}.
 
-Layout: 
-- Professional, vibrant composition optimized for 1080x1350 (Instagram Stories, Feed, LinkedIn)
-- Keep the bottom-right corner empty (negative space) for logo overlay
-- Balanced, eye-catching design with premium color grading
-- NO borders, frames, or decorative edges around the image
-- Full bleed design that extends edge to edge
+Include headline prominently: "${headline}"
 
-Text: 
-- Include headline: "${headline}" (max 5 words, legible and prominent)
-- Text placement: centered or top-left area
-- Font: bold, modern, professional
-- Color: high contrast for readability
-- NO other text elements beyond the headline
-
-Content Requirements:
-- ${event} celebration with ${evtMessage}
-- Visual integration of industry context (${industry})
-- Professional photography or realistic AI-generated art
-- High detail, sharp focus, saturated colors
-- Premium lighting and cinematic quality
-- Clean, professional look without decorative borders or frames
-
-Design Guidelines:
-- Must be unmistakably about ${event}
-- Industry elements should enhance, not dominate
-- Clean composition with clear visual hierarchy
-- Suitable for professional business marketing
-- Text must be legible at thumbnail size
-- CRITICAL: Remove any decorative borders, frames, or ornamental edges
-- Image must fill entire canvas without white space or colored borders`
+Style: High-quality, vibrant, professional. 1080x1350 format. No borders, frames, or decorative edges. Full-bleed design. Clean layout with bottom-right space for logo.`
 
   return prompt
 }
