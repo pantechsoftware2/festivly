@@ -128,6 +128,8 @@ export default function AuthCallback() {
               const profileData: any = {
                 id: user.id,
                 email: user.email || null,
+                subscription_plan: 'free', // CRITICAL: Default for new signups
+                free_images_generated: 0,  // CRITICAL: Initialize counter
               }
               // Always include industry and logo
               if (pendingIndustry) profileData.industry_type = pendingIndustry
@@ -137,7 +139,9 @@ export default function AuthCallback() {
                 id: user.id,
                 email: user.email,
                 industry_type: pendingIndustry || null,
-                brand_logo_url: logoUrl || null
+                brand_logo_url: logoUrl || null,
+                subscription_plan: 'free',
+                free_images_generated: 0
               })
 
               // Use the same profiles endpoint for consistency

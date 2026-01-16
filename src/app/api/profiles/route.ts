@@ -4,9 +4,9 @@ import { createServiceRoleClient } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, email, industry_type, brand_logo_url } = body
+    const { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated } = body
 
-    console.log('📨 Profile API received request with body:', { id, email, industry_type, brand_logo_url })
+    console.log('📨 Profile API received request with body:', { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated })
     console.log('📊 Value types check:', {
       id_type: typeof id,
       email_type: typeof email,
@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
     if (email !== undefined) profilePayload.email = email
     if (industry_type !== undefined) profilePayload.industry_type = industry_type
     if (brand_logo_url !== undefined) profilePayload.brand_logo_url = brand_logo_url
+    if (subscription_plan !== undefined) profilePayload.subscription_plan = subscription_plan
+    if (free_images_generated !== undefined) profilePayload.free_images_generated = free_images_generated
 
     console.log('📝 Profile payload to upsert:', profilePayload)
 
@@ -65,6 +67,8 @@ export async function POST(request: NextRequest) {
       if (email !== undefined) updatePayload.email = email
       if (industry_type !== undefined) updatePayload.industry_type = industry_type
       if (brand_logo_url !== undefined) updatePayload.brand_logo_url = brand_logo_url
+      if (subscription_plan !== undefined) updatePayload.subscription_plan = subscription_plan
+      if (free_images_generated !== undefined) updatePayload.free_images_generated = free_images_generated
 
       console.log('📝 UPDATE payload:', updatePayload)
       
@@ -95,6 +99,8 @@ export async function POST(request: NextRequest) {
         email: email || null,
         industry_type: industry_type || null,
         brand_logo_url: brand_logo_url || null,
+        subscription_plan: subscription_plan || 'free', // DEFAULT: free tier for new users
+        free_images_generated: free_images_generated !== undefined ? free_images_generated : 0, // DEFAULT: 0 generations
       }
       console.log('📝 INSERT payload being sent to Supabase:', profileInsertPayload)
       
