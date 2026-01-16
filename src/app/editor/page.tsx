@@ -506,12 +506,13 @@ function EditorPageContent() {
         <div className="min-h-screen bg-black flex items-center justify-center p-4">
           <div className="w-full max-w-3xl">
             {/* Image with Editable Text Overlay - "Slot Machine Reveal" */}
-            <div className="relative overflow-hidden mb-8">
+            <div className="relative overflow-hidden mb-8 border-0" style={{border: 'none'}}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={image.url || image.base64}
                 alt="Generated campaign"
                 className="w-full h-auto object-cover border-0"
+                style={{border: 'none'}}
               />
               {/* Text Overlay at Bottom with Gradient Background */}
               <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/90 via-black/60 to-transparent p-6 sm:p-8 min-h-[140px] flex flex-col justify-end">

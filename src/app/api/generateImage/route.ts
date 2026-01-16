@@ -503,15 +503,17 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     })
   } catch (error: any) {
     console.error('Generation error:', error?.message)
+    console.error('Error stack:', error?.stack)
 
+    // Always return 200 with graceful error for JSON parsing
     return NextResponse.json(
       {
         success: false,
         images: [],
         prompt: '',
-        error: error?.message || 'Internal server error',
+        error: 'Image generation failed. Please try again.',
       },
-      { status: 500 }
+      { status: 200 } // Return 200 OK to avoid HTML error responses
     )
   }
 }

@@ -288,6 +288,7 @@ export default function ResultPage() {
             if (logoImg.width > 0 && logoImg.height > 0) {
               // Draw logo directly without background frame
               ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
+              console.log(`✅ Logo drawn at (${logoX}, ${logoY}) size: ${logoSize}px`)
             }
           } catch (logoErr) {
             // Logo failed to load - continue without it
@@ -470,14 +471,15 @@ export default function ResultPage() {
           {/* Generated Images Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
             {result.images.map((image, index) => (
-              <div key={image.id} className="overflow-hidden">
-                <div className="aspect-square relative group">
+              <div key={image.id} className="overflow-hidden border-0" style={{border: 'none'}}>
+                <div className="aspect-square relative group border-0" style={{border: 'none'}}>
                   {imagesWithLogo[image.id] ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={imagesWithLogo[image.id]}
                       alt={`Generated image ${index + 1} with logo`}
                       className="w-full h-full object-cover border-0"
+                      style={{border: 'none'}}
                       crossOrigin="anonymous"
                       onError={(e) => {
                         e.currentTarget.src = image.url
