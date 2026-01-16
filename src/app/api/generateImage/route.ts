@@ -307,6 +307,19 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         const base64 = base64Images[i]
         const imageId = uuidv4()
         const timestamp = new Date().toISOString()
+
+        // Check if this is a placeholder image (data URL)
+        if (base64.startsWith('data:image/')) {
+          console.log(`   📌 Image ${i + 1} is a placeholder (data URL)`)
+          generatedImages.push({
+            id: imageId,
+            url: base64, // Use data URL directly
+            storagePath: `placeholder-${timestamp}-${i}`,
+            createdAt: timestamp,
+          })
+          continue
+        }
+
         const fileName = `generated/${userId || 'anonymous'}/${timestamp}-${i}.jpg`
 
         // Convert base64 to buffer

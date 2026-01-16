@@ -237,6 +237,13 @@ export default function ResultPage() {
         // Load main image
         let mainImg: HTMLImageElement
         try {
+          // Check if this is a placeholder image (data URL)
+          if (imageUrl.startsWith('data:image/')) {
+            console.log(`📌 Skipping logo overlay for placeholder image`)
+            setImagesWithLogo(prev => ({ ...prev, [imageId]: imageUrl }))
+            return
+          }
+
           mainImg = await loadImageWithTimeout(imageUrl, 10000)
         } catch (e) {
           // Fallback: try direct fetch

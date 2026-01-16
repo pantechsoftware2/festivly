@@ -177,37 +177,26 @@ async function retryWithBackoff<T>(
 
 /**
  * Create a placeholder image with gradient and prompt text
- * Returns base64-encoded PNG
+ * Returns base64-encoded SVG
  */
 export function createPlaceholderImage(prompt: string): string {
-  // Create a simple SVG placeholder
-  const svg = `
-    <svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
-          <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="1080" height="1350" fill="url(#grad)"/>
-      <text x="540" y="675" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" font-weight="bold">
-        AI Image Generation
-      </text>
-      <text x="540" y="750" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" opacity="0.8">
-        ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}
-      </text>
-      <text x="540" y="850" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" opacity="0.6">
-        Enable service account keys in Google Cloud
-      </text>
-      <text x="540" y="890" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" opacity="0.6">
-        to generate real images with Imagen AI
-      </text>
-    </svg>
-  `
+  // Create a simple SVG placeholder with properly encoded text
+  const safePrompt = prompt
+    .substring(0, 50)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#x27;')
+  
+  const svg = `<svg width="1080" height="1350" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" style="stop-color:#667eea;stop-opacity:1" /><stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" /></linearGradient></defs><rect width="1080" height="1350" fill="url(#grad)"/><text x="540" y="675" font-family="Arial, sans-serif" font-size="48" fill="white" text-anchor="middle" font-weight="bold">AI Image Generation</text><text x="540" y="750" font-family="Arial, sans-serif" font-size="24" fill="white" text-anchor="middle" opacity="0.8">${safePrompt}${prompt.length > 50 ? '...' : ''}</text><text x="540" y="850" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" opacity="0.6">Enable service account keys in</text><text x="540" y="890" font-family="Arial, sans-serif" font-size="18" fill="white" text-anchor="middle" opacity="0.6">Google Cloud to generate real images</text></svg>`
   
   // Convert SVG to base64
   const base64 = Buffer.from(svg).toString('base64')
-  return `data:image/svg+xml;base64,${base64}`
+  const dataUrl = `data:image/svg+xml;base64,${base64}`
+  
+  console.log(`🎨 Placeholder created: ${dataUrl.substring(0, 100)}...`)
+  return dataUrl
 }
 
 /**
