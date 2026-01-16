@@ -43,6 +43,13 @@ export default function ResultPage() {
     }
   }, [user, authLoading, router])
 
+  // Redirect to home if no images
+  useEffect(() => {
+    if (!loading && (!result || !result.images || result.images.length === 0)) {
+      router.push('/home')
+    }
+  }, [result, loading, router])
+
   // DISABLED: Attempt counting removed - all users get unlimited free generations
   // useEffect(() => {
   //   if (!user?.id) return
@@ -412,9 +419,6 @@ export default function ResultPage() {
 
   if (!result || !result.images || result.images.length === 0) {
     // No images - silently redirect to home
-    useEffect(() => {
-      router.push('/home')
-    }, [router])
     return null
   }
 
