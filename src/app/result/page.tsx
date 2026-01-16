@@ -419,13 +419,29 @@ export default function ResultPage() {
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
         <Header />
         <div className="pt-32 pb-20 px-4 text-center">
-          <p className="text-white mb-6">Ready to generate your next set of images. All users get unlimited free generations!</p>
-          <Button 
-            onClick={() => router.push('/home')}
-            className="bg-purple-600 hover:bg-purple-700"
-          >
-            Generate More Images
-          </Button>
+          {user ? (
+            // Authenticated user - show generate button
+            <div className="space-y-4">
+              <p className="text-white mb-6">No images yet. Generate your first set now!</p>
+              <Button 
+                onClick={() => router.push('/editor')}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Generate Images
+              </Button>
+            </div>
+          ) : (
+            // Not authenticated - go back to home
+            <div className="space-y-4">
+              <p className="text-white mb-6">Please sign in to generate images</p>
+              <Button 
+                onClick={() => router.push('/home')}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                Back to Home
+              </Button>
+            </div>
+          )}
         </div>
       </main>
     )
