@@ -451,19 +451,12 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       console.error('   ⚠️ Quota exceeded - API rate limited')
     }
     
-    // Return 4 placeholder images on any error instead of throwing
-    try {
-      console.warn('📋 Falling back to placeholder images')
-      return [
-        createPlaceholderImage(options.prompt),
-        createPlaceholderImage(options.prompt),
-        createPlaceholderImage(options.prompt),
-        createPlaceholderImage(options.prompt),
-      ]
-    } catch (e) {
-      console.error('   🚨 Even placeholder generation failed:', e)
-      return []
-    }
+    // IMPORTANT: DO NOT return placeholder images
+    // Return empty array so caller knows API failed
+    // Caller should return proper error response to user
+    console.error('🚨 Image generation FAILED - returning empty array')
+    console.error('   Frontend should show error message instead of placeholders')
+    throw error // Re-throw so the API route can handle it
   }
 }
 

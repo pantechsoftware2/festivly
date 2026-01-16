@@ -323,10 +323,27 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.log(`   Real images: ${realImageCount}`)
       console.log(`   Placeholder SVG images: ${placeholderCount}`)
       
+      if (placeholderCount > 0 && realImageCount === 0) {
+        // ALL images are placeholders - API failed, return error to user
+        console.error(`🚨 CRITICAL: All ${placeholderCount} images are placeholders - API generation failed`)
+        console.error(`   This indicates: API error, quota exceeded, or service account auth failed`)
+        console.error(`   Check Vercel logs for detailed error messages`)
+        
+        return NextResponse.json(
+          {
+            success: false,
+            images: [],
+            prompt: finalPrompt,
+            error: 'Image generation service temporarily unavailable. Please check your Google Cloud credentials and quotas in Vercel settings.',
+          },
+          { status: 503 } // Service Unavailable
+        )
+      }
+      
       if (placeholderCount > 0) {
-        console.warn(`⚠️ PRODUCTION ISSUE: Received ${placeholderCount} placeholder images instead of real Imagen-4 output`)
-        console.warn(`   This indicates the Vertex AI API failed or response parsing is broken`)
-        console.warn(`   Check logs above for API error details`)
+        console.warn(`⚠️ PARTIAL FAILURE: ${realImageCount} real + ${placeholderCount} placeholder images`)
+        console.warn(`   This indicates the Vertex AI API partially failed`)
+        console.warn(`   Returning what we have (${realImageCount} real images)`)
       }
       
       // CRITICAL CHECK: Detect if only 1 image returned (may be placeholder/fallback)
@@ -351,30 +368,18 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.error('❌ Image generation error:', genError?.message)
       console.error('   Stack:', genError?.stack)
       
-      // CRITICAL: Never return empty images array to user
-      // generateImages() should always return at least 4 placeholder images
-      // If we get here, something went very wrong, but return placeholders anyway
-      try {
-        const { createPlaceholderImage } = await import('@/lib/vertex-ai')
-        base64Images = [
-          createPlaceholderImage(finalPrompt),
-          createPlaceholderImage(finalPrompt),
-          createPlaceholderImage(finalPrompt),
-          createPlaceholderImage(finalPrompt),
-        ]
-        console.warn('⚠️ Returning fallback placeholder images due to generation error')
-      } catch (fallbackErr) {
-        console.error('🔴 Could not create fallback placeholders:', fallbackErr)
-        return NextResponse.json(
-          {
-            success: false,
-            images: [],
-            prompt: finalPrompt,
-            error: genError?.message || 'Failed to generate images',
-          },
-          { status: 500 }
-        )
-      }
+      // Return error response to user instead of silent placeholders
+      console.error('🚨 Returning error response to frontend')
+      
+      return NextResponse.json(
+        {
+          success: false,
+          images: [],
+          prompt: finalPrompt,
+          error: `Image generation failed: ${genError?.message || 'Unknown error'}. Check Vercel environment variables.`,
+        },
+        { status: 503 } // Service Unavailable
+      )
     }
 
     // Upload to Supabase Storage
