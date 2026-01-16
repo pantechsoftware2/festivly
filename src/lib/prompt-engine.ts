@@ -57,10 +57,13 @@ Visual Composition:
 
 Marketing Design Requirements:
 - Suitable for Instagram Stories, Feed, Reels, and LinkedIn professional posts
-- Clean, uncluttered composition with NO external text or labels
-- NO watermarks, logos, or text overlays of any kind
-- NO emojis, badges, or decorative text elements
-- NO white frames, borders, or background shapes
+- ABSOLUTELY NO TEXT of any kind on the image (event names, greetings, captions, labels)
+- ABSOLUTELY NO white frames, panels, or background boxes (especially at bottom)
+- ABSOLUTELY NO watermarks, logos, or text overlays
+- ABSOLUTELY NO emojis, badges, decorative text, or labels
+- ABSOLUTELY NO greeting text like "HAPPY REPUBLIC DAY" or similar
+- ABSOLUTELY NO event name text anywhere on image
+- Clean, uncluttered composition with empty white space for brand logo only
 - Cultural authenticity mixed with modern design trends
 - Visual hierarchy that draws attention and creates engagement
 - Reserve bottom-right corner (15% space) for brand logo overlay (empty space only)
@@ -71,12 +74,16 @@ Industry-Specific Visual Focus (${industry}):
 ${industry === "Education" ? "- Include aspirational, forward-thinking visuals\n- Showcase growth, learning, and achievement\n- Use bright, motivating color palettes" : industry === "Real Estate" ? "- Showcase architectural elegance and spacious design\n- Include lifestyle imagery with families/professionals\n- Emphasize trust, comfort, and investment value" : industry === "Tech & Startup" ? "- Use geometric, modern visual elements\n- Emphasize innovation and cutting-edge design\n- Create futuristic, sleek aesthetic" : industry === "Manufacturing" ? "- Showcase precision, quality craftsmanship\n- Include industrial excellence and reliability\n- Emphasize strength and durability" : industry === "Retail & Fashion" ? "- Display trendy, aspirational lifestyle\n- Showcase products in elegant settings\n- Create desire and exclusivity" : "- Focus on warmth, hospitality, and appeal\n- Showcase food quality and atmosphere\n- Emphasize comfort and experience"}
 
 Critical Requirements:
-- Generate ONLY photograph/artwork without ANY text elements
-- Do NOT include event name, brand name, or any text on the image
-- Do NOT add decorative frames or white background areas
-- Do NOT include any external labels or emoji-like elements
-- Clean, raw image suitable for professional business advertising
+- Generate ONLY photograph/artwork - ZERO text elements anywhere
+- Do NOT include event name, brand name, dates, greetings, or any text
+- Do NOT include "HAPPY REPUBLIC DAY" or similar greeting text
+- Do NOT add ANY frames, boxes, panels, or white background areas
+- Do NOT include any borders at bottom or top
+- Do NOT include any external labels, captions, or emoji-like elements
+- Image must be CLEAN AND RAW - suitable for professional business advertising
+- All visual focus on event theme elements and industry context
 - Suitable for LinkedIn and Instagram business posts
+- Logo space only in bottom-right corner (empty, no text/frames)
 
 Style: Professional, polished, premium quality - suitable for corporate marketing.
 Photography style: high-quality stock photography or realistic AI-generated art.`
