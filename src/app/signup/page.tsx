@@ -237,6 +237,8 @@ function SignUpContent() {
             email: email,
             industry_type: industryType,
             brand_logo_url: logoUrl,
+            subscription_plan: 'free', // CRITICAL: Default for new signups
+            free_images_generated: 0,  // CRITICAL: Initialize counter
           }),
         })
 
