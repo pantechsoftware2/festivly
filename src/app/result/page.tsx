@@ -560,13 +560,13 @@ export default function ResultPage() {
               }}
               className="bg-purple-600 hover:bg-purple-700"
             >
-              📋 Copy URLs
+              Copy URLs
             </Button>
           </div>
 
           {/* Info Section */}
           <div className="mt-12 bg-slate-800/30 backdrop-blur border border-purple-500/20 rounded-xl p-8">
-            <h3 className="text-xl font-semibold text-white mb-4">📊 Generation Details</h3>
+            <h3 className="text-xl font-semibold text-white mb-4">Generation Details</h3>
             <div className="grid grid-cols-2 gap-6 text-purple-200/70 text-sm">
               <div>
                 <p className="font-semibold text-white">Event</p>

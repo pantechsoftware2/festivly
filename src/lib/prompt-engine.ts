@@ -41,13 +41,22 @@ Visual Composition:
 
 Design Requirements:
 - Suitable for Instagram Stories, Feed, and LinkedIn
-- Clean, uncluttered composition
-- Professional typography with event name prominently displayed
+- Clean, uncluttered composition with NO external text or labels
+- NO watermarks, logos, or text overlays of any kind
+- NO emojis, badges, or decorative text elements
+- NO white frames, borders, or background shapes
 - Cultural authenticity mixed with modern design trends
-- Reserve bottom-right corner (15% space) for brand logo overlay
+- Reserve bottom-right corner (15% space) for brand logo overlay (empty space only)
 - Premium color grading and lighting
 
-Critical: Generate ACTUAL photograph/artwork, NOT text overlay. Do NOT include watermarks.
+Critical Requirements:
+- Generate ONLY photograph/artwork without ANY text elements
+- Do NOT include event name, brand name, or any text on the image
+- Do NOT add decorative frames or white background areas
+- Do NOT include any external labels or emoji-like elements
+- Clean, raw image suitable for professional business advertising
+- Suitable for LinkedIn and Instagram business posts
+
 Style: Professional, polished, premium quality - suitable for corporate marketing.
 Photography style: high-quality stock photography or realistic AI-generated art.`
 
