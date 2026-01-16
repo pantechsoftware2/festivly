@@ -306,9 +306,14 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         console.error('🔴 API Failed:', response.status, errorText.substring(0, 200))
         
         if (response.status === 429) {
-          // Quota exceeded - return placeholder silently
-          console.warn('⚠️ Quota exceeded')
-          return [createPlaceholderImage(options.prompt)]
+          // Quota exceeded - return placeholder images (4 instead of 1)
+          console.warn('⚠️ Quota exceeded - returning placeholders')
+          return [
+            createPlaceholderImage(options.prompt),
+            createPlaceholderImage(options.prompt),
+            createPlaceholderImage(options.prompt),
+            createPlaceholderImage(options.prompt),
+          ]
         }
         
         throw new Error(`Vertex AI API error (${response.status}): ${errorText}`)
@@ -345,9 +350,14 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     // Log the actual error so we can see what went wrong
     console.error('🔴 generateImages error:', error?.message || error)
     
-    // Return placeholder image on any error instead of throwing
+    // Return 4 placeholder images on any error instead of throwing
     try {
-      return [createPlaceholderImage(options.prompt)]
+      return [
+        createPlaceholderImage(options.prompt),
+        createPlaceholderImage(options.prompt),
+        createPlaceholderImage(options.prompt),
+        createPlaceholderImage(options.prompt),
+      ]
     } catch (e) {
       return []
     }
