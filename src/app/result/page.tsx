@@ -415,33 +415,19 @@ export default function ResultPage() {
   }
 
   if (!result || !result.images || result.images.length === 0) {
+    // No images - silently redirect to home without showing any message
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
         <Header />
         <div className="pt-32 pb-20 px-4 text-center">
-          {user ? (
-            // Authenticated user - show generate button
-            <div className="space-y-4">
-              <p className="text-white mb-6">No images yet. Generate your first set now!</p>
-              <Button 
-                onClick={() => router.push('/editor')}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Generate Images
-              </Button>
-            </div>
-          ) : (
-            // Not authenticated - go back to home
-            <div className="space-y-4">
-              <p className="text-white mb-6">Please sign in to generate images</p>
-              <Button 
-                onClick={() => router.push('/home')}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                Back to Home
-              </Button>
-            </div>
-          )}
+          <div className="space-y-4">
+            <Button 
+              onClick={() => router.push('/home')}
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              Back to Home
+            </Button>
+          </div>
         </div>
       </main>
     )
