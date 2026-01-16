@@ -69,6 +69,7 @@ interface GenerateImageResponse {
   prompt: string
   eventName?: string
   industry?: string
+  showPricingModal?: boolean
   error?: string
 }
 
@@ -80,6 +81,9 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
   try {
     const body: GenerateImageRequest = await request.json()
     const { eventId, prompt: userPrompt, userId } = body
+
+    // GOOGLE AUTH DEBUG: Log userId presence
+    console.log(`🔍 REQUEST DEBUG - userId: ${userId || 'MISSING'}, hasEventId: ${!!eventId}, hasPrompt: ${!!userPrompt}`)
 
     if (!eventId && !userPrompt) {
       return NextResponse.json(
@@ -95,12 +99,14 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
 
     // Deduplicate concurrent requests - if same request is in progress, wait for it
     const cacheKey = getCacheKey(userId || 'anon', userPrompt || eventId || '')
+    console.log(`🔑 Cache key: ${cacheKey}`)
     if (requestInProgress.has(cacheKey)) {
-      console.log(`♻️ DEDUP: Waiting for in-progress request...`)
+      console.log(`♻️ DEDUP: Waiting for in-progress request with key: ${cacheKey}`)
       await requestInProgress.get(cacheKey)!
       // Return a fresh response from cached result data instead of reusing the response object
       const cachedResult = requestResults.get(cacheKey)
       if (cachedResult) {
+        console.log(`♻️ DEDUP: Returning cached result with ${cachedResult.data.images?.length || 0} images`)
         return NextResponse.json(cachedResult.data, { status: cachedResult.status })
       }
     }
@@ -144,6 +150,12 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
 async function processGenerationRequest(body: GenerateImageRequest): Promise<NextResponse<GenerateImageResponse>> {
   try {
     const { eventId, prompt: userPrompt, userId } = body
+
+    // VALIDATION: Ensure userId is provided (especially critical for Google auth)
+    if (!userId) {
+      console.warn(`⚠️ CRITICAL: userId is missing/undefined. This may be a Google auth issue.`)
+      console.warn(`   Request body: eventId=${eventId}, hasPrompt=${!!userPrompt}, userId=${userId}`)
+    }
 
     // Get user industry and subscription from database
     let userIndustry = 'Education' // Default fallback
@@ -232,6 +244,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     }
 
     console.log(`\n🚀 REQUEST #${Math.random().toString(36).substring(7).toUpperCase()} - Generating 4 images`)
+    console.log(`   userId: ${userId || 'UNDEFINED'}, subscription: ${userSubscription}`)
 
     // Generate 4 images (or call multiple times)
     let base64Images: string[] = []
@@ -243,6 +256,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         numberOfImages: 4,
         sampleCount: 4,
       })
+
+      console.log(`🎨 API returned ${base64Images.length} base64 images`)
+      
+      // CRITICAL CHECK: Detect if only 1 image returned (may be placeholder/fallback)
+      if (base64Images.length === 1) {
+        console.warn(`⚠️ WARNING: Only 1 image returned instead of 4`)
+        console.warn(`   This could indicate: Vertex AI API failed, quota exceeded, or network error`)
+      }
 
       if (base64Images.length === 0) {
         throw new Error('No images generated - API returned empty array')
@@ -336,6 +357,11 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         { status: 500 }
       )
     }
+
+    console.log(`\n✅ FINAL RESULT: ${generatedImages.length} images successfully generated and uploaded`)
+    generatedImages.forEach((img, idx) => {
+      console.log(`   ${idx + 1}. ${img.url.substring(0, 80)}...`)
+    })
 
     // INCREMENT COUNTER: Increment free user's generation count after successful generation
     // This tracks how many times they've generated (not how many images)
