@@ -7,7 +7,7 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
-import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
+import { checkImageLimit } from '@/lib/image-limit'
 import { createClient } from '@/lib/supabase'
 
 interface GeneratedImage {
@@ -51,15 +51,14 @@ export default function ResultPage() {
       try {
         const supabase = createClient()
 
-        // Increment the counter on every generation for free users
+        // ✅ DO NOT INCREMENT HERE - API already incremented in generateImage/route.ts
+        // This check is just to log the updated count
         const limitInfo = await checkImageLimit(user.id, supabase)
-        // Only increment if user is on free plan (pro/plus don't need counting)
         if (limitInfo.subscription === 'free') {
-          await incrementImageCount(user.id, supabase)
-          console.log('✅ Image count incremented')
+          console.log(`✅ Image generation recorded. Total: ${limitInfo.imagesGenerated}/1`)
         }
       } catch (err) {
-        console.error('Error incrementing image count:', err)
+        console.error('Error checking image count:', err)
       }
     }
 

@@ -12,7 +12,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase'
 import { addLogoToImage } from '@/lib/canvas-export'
-import { checkImageLimit, incrementImageCount } from '@/lib/image-limit'
+import { checkImageLimit } from '@/lib/image-limit'
 
 
 function EditorPageContent() {
