@@ -419,12 +419,12 @@ export default function ResultPage() {
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
         <Header />
         <div className="pt-32 pb-20 px-4 text-center">
-          <p className="text-white mb-6">Generation in progress or images not yet available. Retrying...</p>
+          <p className="text-white mb-6">Ready to generate your next set of images. All users get unlimited free generations!</p>
           <Button 
             onClick={() => router.push('/home')}
             className="bg-purple-600 hover:bg-purple-700"
           >
-            Back to Events
+            Generate More Images
           </Button>
         </div>
       </main>
