@@ -295,12 +295,20 @@ function EditorPageContent() {
         return
       }
 
-      // GRACEFUL FAILURE: No images - show blank result page instead of error
+      // GRACEFUL FAILURE: No images - show friendly message on result page
       if (!responseData?.images || responseData.images.length === 0) {
         console.log('⚠️ No images generated - server returned empty result')
-        // Silently show empty result instead of error
-        setResult({ images: [] })
-        setGenerating(false)
+        // Save empty result to storage and redirect to result page
+        const emptyResult = { images: [], prompt: responseData?.prompt || '' }
+        setResult(emptyResult)
+        try {
+          sessionStorage.setItem('generatedResult', JSON.stringify(emptyResult))
+          localStorage.setItem('lastGeneratedResult', JSON.stringify(emptyResult))
+        } catch (e) {
+          console.warn('⚠️ Storage error:', e)
+        }
+        // Redirect to result page to show "Generation in progress" message
+        router.push('/result')
         return
       }
 
@@ -308,9 +316,17 @@ function EditorPageContent() {
     } catch (err: any) {
       // SILENT FAILURE: Don't show any error messages to users
       console.error('Generation error:', err?.message)
-      // Just show empty result
-      setResult({ images: [] })
-      setGenerating(false)
+      // Save empty result and redirect to result page
+      const emptyResult = { images: [] }
+      setResult(emptyResult)
+      try {
+        sessionStorage.setItem('generatedResult', JSON.stringify(emptyResult))
+        localStorage.setItem('lastGeneratedResult', JSON.stringify(emptyResult))
+      } catch (e) {
+        console.warn('⚠️ Storage error:', e)
+      }
+      // Redirect to result page to show "Generation in progress" message
+      router.push('/result')
     }
   }
 

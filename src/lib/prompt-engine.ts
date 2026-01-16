@@ -76,7 +76,6 @@ ${industry === "Education" ? "- Include aspirational, forward-thinking visuals\n
 Critical Requirements:
 - Generate ONLY photograph/artwork - ZERO text elements anywhere
 - Do NOT include event name, brand name, dates, greetings, or any text
-- Do NOT include "HAPPY REPUBLIC DAY" or similar greeting text
 - Do NOT add ANY frames, boxes, panels, or white background areas
 - Do NOT include any borders at bottom or top
 - Do NOT include any external labels, captions, or emoji-like elements
