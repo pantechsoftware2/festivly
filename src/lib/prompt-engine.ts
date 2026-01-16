@@ -34,58 +34,44 @@ export function generatePrompt(event: string, industry: string): string {
   const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"]
   const evtMessage = eventMessages[event as keyof typeof eventMessages] || eventMessages["Republic Day"]
 
-  const prompt = `Create a stunning, high-quality, professional social media image celebrating ${event}. The brand is in the ${industry} sector.
+  // Generate 5-word event headlines
+  const eventHeadlines: Record<string, string> = {
+    "Lohri": "Celebrate Harvest Joy Together",
+    "Makar Sankranti": "Fly High With Tradition",
+    "Republic Day": "Unity Pride National Spirit"
+  }
+  const headline = eventHeadlines[event] || "Celebrate This Special Event"
 
-PRIMARY EVENT THEME (MUST BE DOMINANT):
-This image MUST prominently feature ${event} celebration elements:
-${evtKeywords}
+  const prompt = `Create a high-quality social media image for ${event}. The brand is in the ${industry} sector.
 
-CRITICAL: The image must be VISIBLY and UNMISTAKABLY about ${event}. Do NOT create generic corporate photos. The event theme must dominate the composition (60-70% of visual focus).
+Visual Style: 
+Use elements like ${indKeywords} combined with ${evtKeywords}.
 
-Secondary Industry Context (${industry}):
-Subtly blend these industry elements to support the ${industry} brand:
-${indKeywords}
+Layout: 
+- Professional, vibrant composition optimized for 1080x1350 (Instagram Stories, Feed, LinkedIn)
+- Keep the bottom-right corner empty (negative space) for logo overlay
+- Balanced, eye-catching design with premium color grading
 
-Visual Composition:
-- Modern, vibrant, eye-catching professional design optimized for social media ads
-- Seamlessly blend: ${indKeywords}
-- Incorporate: ${evtKeywords}
-- Composition: balanced, professional, premium quality
-- Resolution: optimized for 1080x1350 aspect ratio (perfect for Instagram Stories, Feed, LinkedIn)
-- Colors: saturated, vibrant, professional palette that stands out in social feeds
-- Detail level: high detail, sharp focus, professional photography quality
+Text: 
+- Include headline: "${headline}" (max 5 words, legible and prominent)
+- Text placement: centered or top-left area
+- Font: bold, modern, professional
+- Color: high contrast for readability
+- NO other text elements beyond the headline
 
-Marketing Design Requirements:
-- Suitable for Instagram Stories, Feed, Reels, and LinkedIn professional posts
-- ABSOLUTELY NO TEXT of any kind on the image (event names, greetings, captions, labels)
-- ABSOLUTELY NO white frames, panels, or background boxes (especially at bottom)
-- ABSOLUTELY NO watermarks, logos, or text overlays
-- ABSOLUTELY NO emojis, badges, decorative text, or labels
-- ABSOLUTELY NO greeting text like "HAPPY REPUBLIC DAY" or similar
-- ABSOLUTELY NO event name text anywhere on image
-- Clean, uncluttered composition with empty white space for brand logo only
-- Cultural authenticity mixed with modern design trends
-- Visual hierarchy that draws attention and creates engagement
-- Reserve bottom-right corner (15% space) for brand logo overlay (empty space only)
-- Premium color grading and professional lighting (cinematic quality)
-- Evoke the emotion: "${evtMessage}"
+Content Requirements:
+- ${event} celebration with ${evtMessage}
+- Visual integration of industry context (${industry})
+- Professional photography or realistic AI-generated art
+- High detail, sharp focus, saturated colors
+- Premium lighting and cinematic quality
 
-Industry-Specific Visual Focus (${industry}):
-${industry === "Education" ? "- Include aspirational, forward-thinking visuals\n- Showcase growth, learning, and achievement\n- Use bright, motivating color palettes" : industry === "Real Estate" ? "- Showcase architectural elegance and spacious design\n- Include lifestyle imagery with families/professionals\n- Emphasize trust, comfort, and investment value" : industry === "Tech & Startup" ? "- Use geometric, modern visual elements\n- Emphasize innovation and cutting-edge design\n- Create futuristic, sleek aesthetic" : industry === "Manufacturing" ? "- Showcase precision, quality craftsmanship\n- Include industrial excellence and reliability\n- Emphasize strength and durability" : industry === "Retail & Fashion" ? "- Display trendy, aspirational lifestyle\n- Showcase products in elegant settings\n- Create desire and exclusivity" : "- Focus on warmth, hospitality, and appeal\n- Showcase food quality and atmosphere\n- Emphasize comfort and experience"}
-
-Critical Requirements:
-- Generate ONLY photograph/artwork - ZERO text elements anywhere
-- Do NOT include event name, brand name, dates, greetings, or any text
-- Do NOT add ANY frames, boxes, panels, or white background areas
-- Do NOT include any borders at bottom or top
-- Do NOT include any external labels, captions, or emoji-like elements
-- Image must be CLEAN AND RAW - suitable for professional business advertising
-- All visual focus on event theme elements and industry context
-- Suitable for LinkedIn and Instagram business posts
-- Logo space only in bottom-right corner (empty, no text/frames)
-
-Style: Professional, polished, premium quality - suitable for corporate marketing.
-Photography style: high-quality stock photography or realistic AI-generated art.`
+Design Guidelines:
+- Must be unmistakably about ${event}
+- Industry elements should enhance, not dominate
+- Clean composition with clear visual hierarchy
+- Suitable for professional business marketing
+- Text must be legible at thumbnail size`
 
   return prompt
 }
