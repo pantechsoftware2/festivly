@@ -212,6 +212,12 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     const location = process.env.GOOGLE_CLOUD_REGION || 'us-central1'
     const serviceAccountKey = process.env.GOOGLE_SERVICE_ACCOUNT_KEY
     
+    console.log(`🚀 Starting image generation`)
+    console.log(`   Prompt: "${options.prompt.substring(0, 50)}..."`)
+    console.log(`   Images: ${options.numberOfImages || 4}`)
+    console.log(`   Project: ${project}`)
+    console.log(`   Region: ${location}`)
+    
     if (!project) {
       throw new Error('GOOGLE_CLOUD_PROJECT_ID environment variable is required')
     }
@@ -243,6 +249,7 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     
     // Select the best available Imagen model (prefer Imagen-4)
     const selectedModel = await ensureImagenModelSelected(accessToken.token)
+    console.log(`✅ Using model: ${selectedModel}`)
 
     // Start a background poller once to refresh model availability (best-effort)
     try {
@@ -256,6 +263,7 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
 
     // Call Vertex AI Predict endpoint for the selected model
     const endpoint = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${selectedModel}:predict`
+    console.log(`📡 Calling Imagen-4 API...`)
 
     const requestBody = {
       instances: [
@@ -309,6 +317,7 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       }
       
       const data = await response.json()
+      console.log(`📡 API Response:`, JSON.stringify(data).substring(0, 200))
       
       // Extract base64 images from response
       const images: string[] = []
@@ -319,7 +328,11 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
           const prediction = data.predictions[i]
           if (prediction.bytesBase64Encoded) {
             // Add data URI prefix for PNG
+            const imageSize = prediction.bytesBase64Encoded.length
+            console.log(`   ✅ Image ${i + 1}: ${(imageSize / 1024).toFixed(2)} KB`)
             images.push(`data:image/png;base64,${prediction.bytesBase64Encoded}`)
+          } else {
+            console.warn(`   ❌ Image ${i + 1}: No bytesBase64Encoded in prediction`)
           }
         }
       }
