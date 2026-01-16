@@ -7,6 +7,7 @@ import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { GenerationSpinner } from '@/components/generation-spinner'
 import { UpgradeModal } from '@/components/upgrade-modal'
+import { IndustrySelectionModal } from '@/components/industry-selection-modal'
 import { useAuth } from '@/lib/auth-context'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
@@ -35,6 +36,9 @@ function EditorPageContent() {
   const [showUpgradeModal, setShowUpgradeModal] = useState(false)
   const [imagesGenerated, setImagesGenerated] = useState(0)
   const [imagesRemaining, setImagesRemaining] = useState(5)
+  const [showIndustryModal, setShowIndustryModal] = useState(false)
+  const [userIndustry, setUserIndustry] = useState<string | null>(null)
+  const [checkingIndustry, setCheckingIndustry] = useState(false)
 
 
   const { user, loading: authLoading } = useAuth()
@@ -108,6 +112,29 @@ function EditorPageContent() {
     }
   }, [user?.id])
 
+  // Check if user has industry_type set (critical for Google users)
+  useEffect(() => {
+    if (user?.id && !checkingIndustry && !userIndustry) {
+      setCheckingIndustry(true)
+      fetch(`/api/check-industry?userId=${user.id}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.hasIndustry) {
+            console.log('✅ User has industry:', data.industry)
+            setUserIndustry(data.industry)
+          } else {
+            console.warn('⚠️ User needs to set industry_type')
+            setShowIndustryModal(true)
+          }
+        })
+        .catch(err => {
+          console.error('Error checking industry:', err)
+          setShowIndustryModal(true) // Show modal on error to be safe
+        })
+        .finally(() => setCheckingIndustry(false))
+    }
+  }, [user?.id, checkingIndustry, userIndustry])
+
   // Auto-generate when prompt is available
   useEffect(() => {
     const urlPrompt = searchParams.get('prompt')
@@ -137,6 +164,14 @@ function EditorPageContent() {
     // Check auth state
     if (!user?.id) {
       setError('Please log in to generate images')
+      return
+    }
+
+    // CRITICAL: Check if user has industry_type set before generating
+    // Google users may not have set it during signup
+    if (!userIndustry) {
+      console.warn('⚠️ Cannot generate: User has no industry_type set')
+      setShowIndustryModal(true)
       return
     }
 
@@ -542,7 +577,20 @@ function EditorPageContent() {
           imagesRemaining={imagesRemaining}
           onUpgradeClick={() => setShowUpgradeModal(false)}
         />
-      </>
+        {/* INDUSTRY SELECTION MODAL - For Google users without industry type */}
+        <IndustrySelectionModal
+          isOpen={showIndustryModal}
+          userId={user?.id || ''}
+          onConfirm={(industry) => {
+            console.log('✅ Industry confirmed:', industry)
+            setUserIndustry(industry)
+            setShowIndustryModal(false)
+          }}
+          onCancel={() => {
+            console.log('⚠️ User cancelled industry selection')
+            setShowIndustryModal(false)
+          }}
+        />      </>
     )
   }
 
@@ -596,6 +644,21 @@ function EditorPageContent() {
         imagesGenerated={imagesGenerated}
         imagesRemaining={imagesRemaining}
         onUpgradeClick={() => setShowUpgradeModal(false)}
+      />
+
+      {/* INDUSTRY SELECTION MODAL - For Google users without industry type */}
+      <IndustrySelectionModal
+        isOpen={showIndustryModal}
+        userId={user?.id || ''}
+        onConfirm={(industry) => {
+          console.log('✅ Industry confirmed:', industry)
+          setUserIndustry(industry)
+          setShowIndustryModal(false)
+        }}
+        onCancel={() => {
+          console.log('⚠️ User cancelled industry selection')
+          setShowIndustryModal(false)
+        }}
       />
     </>
   )

@@ -161,6 +161,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     let userIndustry = 'Education' // Default fallback
     let userSubscription = 'free' // Default fallback
     let imagesGenerated = 0 // Track for limit check
+    let userHasIndustry = false // Track if industry was explicitly set
     
     if (userId) {
       try {
@@ -172,11 +173,20 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
           .single()
 
         if (!error && data) {
-          userIndustry = data.industry_type || 'Education'
+          // CRITICAL: Check if industry_type was explicitly set
+          if (data.industry_type && data.industry_type.trim().length > 0) {
+            userIndustry = data.industry_type
+            userHasIndustry = true
+          } else {
+            console.warn(`⚠️ PRODUCTION ISSUE: User ${userId} has NO industry_type set (likely Google signup without industry selection)`)
+            userIndustry = 'Education' // Use default
+            userHasIndustry = false
+          }
+          
           userSubscription = data.subscription_plan || 'free'
           imagesGenerated = data.free_images_generated !== null && data.free_images_generated !== undefined ? data.free_images_generated : 0
           
-          console.log(`📊 User profile loaded: subscription=${userSubscription}, imagesGenerated=${imagesGenerated}, industry=${userIndustry}`)
+          console.log(`📊 User profile loaded: subscription=${userSubscription}, imagesGenerated=${imagesGenerated}, industry=${userIndustry}, hasIndustry=${userHasIndustry}`)
         } else if (error) {
           console.warn(`⚠️ Profile lookup failed: ${error.message}. Using defaults.`)
         }
@@ -223,6 +233,11 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       // Use Desi Prompt Engine
       finalPrompt = generatePrompt(event.name, userIndustry)
       
+      // WARN if using default industry (Google signup without selection)
+      if (!userHasIndustry) {
+        console.warn(`⚠️ PRODUCTION QUALITY: Generating with DEFAULT industry "${userIndustry}" - User may need to set industry_type in profile`)
+      }
+      
       // Enhance prompt for Pro and Pro Plus users
       if (userSubscription === 'pro' || userSubscription === 'pro plus') {
         finalPrompt = enhancePromptForPremium(finalPrompt, userSubscription)
@@ -230,7 +245,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       
       console.log(`\n🎉 EVENT-BASED GENERATION:`)
       console.log(`  Event: ${eventName}`)
-      console.log(`  Industry: ${userIndustry}`)
+      console.log(`  Industry: ${userIndustry}${!userHasIndustry ? ' (DEFAULT - user should set)' : ' (explicit)'}`)
       console.log(`  Subscription: ${userSubscription}`)
       console.log(`  Generated Prompt: ${finalPrompt.substring(0, 100)}...`)
     }
@@ -248,7 +263,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     }
 
     console.log(`\n🚀 REQUEST #${Math.random().toString(36).substring(7).toUpperCase()} - Generating 4 images`)
-    console.log(`   userId: ${userId || 'UNDEFINED'}, subscription: ${userSubscription}`)
+    console.log(`   userId: ${userId || 'UNDEFINED'}, subscription: ${userSubscription}, industry: ${userIndustry}${!userHasIndustry ? ' (DEFAULT)' : ''}`)
 
     // Generate 4 images (or call multiple times)
     let base64Images: string[] = []
