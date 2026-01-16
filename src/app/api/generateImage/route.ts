@@ -285,15 +285,30 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.error('❌ Image generation error:', genError?.message)
       console.error('   Stack:', genError?.stack)
       
-      return NextResponse.json(
-        {
-          success: false,
-          images: [],
-          prompt: finalPrompt,
-          error: genError?.message || 'Failed to generate images',
-        },
-        { status: 500 }
-      )
+      // CRITICAL: Never return empty images array to user
+      // generateImages() should always return at least 4 placeholder images
+      // If we get here, something went very wrong, but return placeholders anyway
+      try {
+        const { createPlaceholderImage } = await import('@/lib/vertex-ai')
+        base64Images = [
+          createPlaceholderImage(finalPrompt),
+          createPlaceholderImage(finalPrompt),
+          createPlaceholderImage(finalPrompt),
+          createPlaceholderImage(finalPrompt),
+        ]
+        console.warn('⚠️ Returning fallback placeholder images due to generation error')
+      } catch (fallbackErr) {
+        console.error('🔴 Could not create fallback placeholders:', fallbackErr)
+        return NextResponse.json(
+          {
+            success: false,
+            images: [],
+            prompt: finalPrompt,
+            error: genError?.message || 'Failed to generate images',
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // Upload to Supabase Storage
@@ -377,7 +392,8 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
     console.log(`\n✅ FINAL RESULT: ${generatedImages.length} images successfully generated and uploaded`)
     generatedImages.forEach((img, idx) => {
-      console.log(`   ${idx + 1}. ${img.url.substring(0, 80)}...`)
+      const type = img.url.startsWith('data:') ? '📌 PLACEHOLDER' : '✨ REAL'
+      console.log(`   ${idx + 1}. ${type}: ${img.url.substring(0, 80)}...`)
     })
 
     // INCREMENT COUNTER: Increment free user's generation count after successful generation
