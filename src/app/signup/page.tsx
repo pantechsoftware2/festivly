@@ -235,8 +235,8 @@ function SignUpContent() {
           body: JSON.stringify({
             id: userId,
             email: email,
-            industry_type: industryType,
-            brand_logo_url: logoUrl,
+            industry_type: industryType || null,  // Explicit null if empty
+            brand_logo_url: logoUrl || null,  // Explicit null if upload failed
             subscription_plan: 'free', // CRITICAL: Default for new signups
             free_images_generated: 0,  // CRITICAL: Initialize counter
           }),

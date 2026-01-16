@@ -130,10 +130,9 @@ export default function AuthCallback() {
                 email: user.email || null,
                 subscription_plan: 'free', // CRITICAL: Default for new signups
                 free_images_generated: 0,  // CRITICAL: Initialize counter
+                industry_type: pendingIndustry || null,  // Always include
+                brand_logo_url: logoUrl || null,  // Always include (even if null)
               }
-              // Always include industry and logo
-              if (pendingIndustry) profileData.industry_type = pendingIndustry
-              if (logoUrl) profileData.brand_logo_url = logoUrl
 
               console.log('💾 CALLBACK - Upserting Google profile with:', {
                 id: user.id,

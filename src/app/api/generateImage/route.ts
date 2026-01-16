@@ -174,7 +174,11 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         if (!error && data) {
           userIndustry = data.industry_type || 'Education'
           userSubscription = data.subscription_plan || 'free'
-          imagesGenerated = data.free_images_generated || 0
+          imagesGenerated = data.free_images_generated !== null && data.free_images_generated !== undefined ? data.free_images_generated : 0
+          
+          console.log(`📊 User profile loaded: subscription=${userSubscription}, imagesGenerated=${imagesGenerated}, industry=${userIndustry}`)
+        } else if (error) {
+          console.warn(`⚠️ Profile lookup failed: ${error.message}. Using defaults.`)
         }
       } catch (err) {
         console.log('Could not fetch user data, using defaults')
