@@ -196,7 +196,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     // Get user industry and subscription from database
     let userIndustry = 'Education' // Default fallback
     let userSubscription = 'free' // Default fallback
-    let imagesGenerated = 0 // Track for limit check
+    // let imagesGenerated = 0 // DISABLED: All users get unlimited free - no need to track
     let userHasIndustry = false // Track if industry was explicitly set
     
     if (userId) {
@@ -220,9 +220,9 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
           }
           
           userSubscription = data.subscription_plan || 'free'
-          imagesGenerated = data.free_images_generated !== null && data.free_images_generated !== undefined ? data.free_images_generated : 0
+          // imagesGenerated = DISABLED - all users unlimited
           
-          console.log(`📊 User profile loaded: subscription=${userSubscription}, imagesGenerated=${imagesGenerated}, industry=${userIndustry}, hasIndustry=${userHasIndustry}`)
+          console.log(`📊 User profile loaded: subscription=${userSubscription}, industry=${userIndustry}, hasIndustry=${userHasIndustry}`)
         } else if (error) {
           console.warn(`⚠️ Profile lookup failed: ${error.message}. Using defaults.`)
         }
@@ -300,12 +300,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
     console.log(`\n🚀 REQUEST #${Math.random().toString(36).substring(7).toUpperCase()} - Generating 4 images`)
     console.log(`   userId: ${userId || 'UNDEFINED'}, subscription: ${userSubscription}, industry: ${userIndustry}${!userHasIndustry ? ' (DEFAULT)' : ''}`)
+    console.log(`   NOTE: All users get unlimited free generations with all 4 images`)
 
     // Generate 4 images (or call multiple times)
     let base64Images: string[] = []
 
     try {
-      // Generate 4 images in a single call if possible, or 4 calls
+      // Request 4 images from API - all users free (no subscription limits)
+      // Note: Google Cloud may return fewer than 4 if quota exceeded
       base64Images = await generateImages({
         prompt: finalPrompt,
         numberOfImages: 4,
