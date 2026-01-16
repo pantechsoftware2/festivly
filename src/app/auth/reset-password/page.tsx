@@ -34,7 +34,7 @@ function ResetPasswordContent() {
     }
 
     // Listen for PASSWORD_RECOVERY event
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event: string, session: any) => {
       console.log('Auth event:', event)
       if (event === 'PASSWORD_RECOVERY') {
         // Password recovery link clicked - session is established

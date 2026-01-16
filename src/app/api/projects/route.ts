@@ -5,29 +5,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !anonKey) {
-    throw new Error('Supabase configuration missing')
-  }
-
-  return createClient(url, anonKey)
-}
+import { createServiceRoleClient } from '@/lib/supabase'
 
 // Use service role key for database operations (bypasses RLS)
 function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !serviceKey) {
-    throw new Error('Supabase service role key missing')
-  }
-
-  return createClient(url, serviceKey)
+  return createServiceRoleClient()
 }
 
 interface SaveProjectRequest {
@@ -57,7 +39,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       )
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = getSupabaseAdminClient()
 
     // Extract user ID from auth header (Bearer token)
     const token = authHeader.replace('Bearer ', '')

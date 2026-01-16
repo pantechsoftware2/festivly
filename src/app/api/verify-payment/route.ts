@@ -5,9 +5,9 @@ import { createClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const { orderId, paymentId, signature, planName } = await request.json()
+    const { orderId, paymentId, signature, planName, userId } = await request.json()
 
-    if (!orderId || !paymentId || !signature || !planName) {
+    if (!orderId || !paymentId || !signature || !planName || !userId) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -28,26 +28,17 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get current user
-    const supabase = createClient()
-    const { data: { session } } = await supabase.auth.getSession()
-    
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'User not authenticated' },
-        { status: 401 }
-      )
-    }
-
     // Update user profile with subscription
+    const supabase = createClient()
     const { error: updateError } = await supabase
       .from('profiles')
       .update({
         subscription_plan: planName.toLowerCase(),
         subscription_status: 'active',
+        free_images_generated: 0, // Reset free count for paid users
         updated_at: new Date().toISOString(),
       })
-      .eq('id', session.user.id)
+      .eq('id', userId)
 
     if (updateError) {
       throw updateError

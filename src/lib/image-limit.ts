@@ -14,9 +14,9 @@ export async function checkImageLimit(userId: string, supabase: any) {
     const imagesGenerated = profile?.free_images_generated || 0
 
     return {
-      hasExceededLimit: subscription === 'free' && imagesGenerated >= 5,
+      hasExceededLimit: subscription === 'free' && imagesGenerated >= 1,
       imagesGenerated,
-      imagesRemaining: Math.max(0, 5 - imagesGenerated),
+      imagesRemaining: Math.max(0, 1 - imagesGenerated),
       subscription,
     }
   } catch (error: any) {
@@ -24,7 +24,7 @@ export async function checkImageLimit(userId: string, supabase: any) {
     return {
       hasExceededLimit: false,
       imagesGenerated: 0,
-      imagesRemaining: 5,
+      imagesRemaining: 1,
       subscription: 'free',
     }
   }

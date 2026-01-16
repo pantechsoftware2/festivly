@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createServiceRoleClient()
 
     // Get current user
     const { data: { session } } = await supabase.auth.getSession()
@@ -30,10 +30,10 @@ export async function POST(request: NextRequest) {
 
     const subscription = profile?.subscription_plan || 'free'
     const imagesGenerated = profile?.free_images_generated || 0
-    const imagesRemaining = Math.max(0, 5 - imagesGenerated)
+    const imagesRemaining = Math.max(0, 1 - imagesGenerated) // Free users get 1 generation
 
-    // Check if user has exceeded free limit
-    const hasExceededLimit = subscription === 'free' && imagesGenerated >= 5
+    // Check if user has exceeded free limit (can generate 1 time only)
+    const hasExceededLimit = subscription === 'free' && imagesGenerated >= 1
 
     if (hasExceededLimit) {
       return NextResponse.json({

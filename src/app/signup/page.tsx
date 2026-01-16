@@ -108,12 +108,12 @@ function SignUpContent() {
   // Memoize createClient to prevent multiple instances
   const supabase = useMemo(() => createClient(), [])
 
-  // Auto-redirect if already logged in
+  // Auto-redirect if already logged in (but not during signup process)
   useEffect(() => {
-    if (!authLoading && user) {
+    if (!authLoading && user && !loading) {
       router.push('/')
     }
-  }, [user, authLoading, router])
+  }, [user, authLoading, router, loading])
 
   const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]

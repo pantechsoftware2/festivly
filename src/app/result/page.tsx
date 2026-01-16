@@ -51,12 +51,12 @@ export default function ResultPage() {
       try {
         const supabase = createClient()
 
-        // Check if this is first generation (count = 0)
+        // Increment the counter on every generation for free users
         const limitInfo = await checkImageLimit(user.id, supabase)
-        if (limitInfo.imagesGenerated === 0) {
-          // First generation: increment the counter
+        // Only increment if user is on free plan (pro/plus don't need counting)
+        if (limitInfo.subscription === 'free') {
           await incrementImageCount(user.id, supabase)
-          console.log('✅ First generation counted')
+          console.log('✅ Image count incremented')
         }
       } catch (err) {
         console.error('Error incrementing image count:', err)

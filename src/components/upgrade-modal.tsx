@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 
@@ -22,42 +21,43 @@ export function UpgradeModal({
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-      <Card className="w-full max-w-md bg-gradient-to-br from-purple-900 to-purple-800 border-purple-500/50 shadow-2xl">
-        <div className="p-8 text-center">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[9999] p-4" onClick={onClose}>
+      <Card className="w-full max-w-lg bg-gradient-to-br from-purple-900 to-purple-800 border-2 border-purple-500 shadow-2xl rounded-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="p-6 sm:p-8 text-center">
           {/* Icon */}
-          <div className="text-6xl mb-6">🎨</div>
+          <div className="text-5xl sm:text-6xl mb-4 sm:mb-6">🎨</div>
 
           {/* Heading */}
-          <h2 className="text-2xl font-bold text-white mb-3">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-2 sm:mb-3">
             Free Trial Limit Reached
           </h2>
 
           {/* Message */}
-          <p className="text-purple-100 mb-6">
-            You've generated <strong>{imagesGenerated}</strong> images using your free trial.
+          <p className="text-sm sm:text-base text-purple-100 mb-4 sm:mb-6">
+            You've used your <strong>1 free generation</strong> (4 images). Ready for unlimited?
           </p>
 
           {/* Progress */}
           <div className="mb-6">
-            <div className="flex justify-between text-sm text-purple-200 mb-2">
-              <span>Free Images Used</span>
-              <span>{imagesGenerated}/5</span>
+            <div className="flex justify-between text-xs sm:text-sm text-purple-200 mb-2">
+              <span>Free Attempts Used</span>
+              <span>{imagesGenerated}/1</span>
             </div>
             <div className="w-full bg-purple-900/50 rounded-full h-2 overflow-hidden">
               <div
                 className="bg-gradient-to-r from-yellow-400 to-orange-500 h-full transition-all"
-                style={{ width: `${(imagesGenerated / 5) * 100}%` }}
+                style={{ width: `${(imagesGenerated / 1) * 100}%` }}
               />
             </div>
           </div>
 
           {/* Features List */}
-          <div className="bg-purple-900/30 rounded-lg p-4 mb-6 text-left">
-            <p className="text-white font-semibold text-sm mb-3">Upgrade to continue:</p>
-            <ul className="space-y-2 text-sm text-purple-100">
+          <div className="bg-purple-900/30 rounded-lg p-3 sm:p-4 mb-6 text-left">
+            <p className="text-white font-semibold text-xs sm:text-sm mb-3">Upgrade and get:</p>
+            <ul className="space-y-2 text-xs sm:text-sm text-purple-100">
               <li>✓ Unlimited image generation</li>
-              <li>✓ HD quality images</li>
+              <li>✓ HD quality images (Pro)</li>
+              <li>✓ 4K quality images (Pro Plus)</li>
               <li>✓ Advanced templates</li>
               <li>✓ Logo priority</li>
               <li>✓ Priority support</li>
@@ -66,23 +66,23 @@ export function UpgradeModal({
 
           {/* Buttons */}
           <div className="space-y-3">
-            <Button
-              onClick={onUpgradeClick}
-              className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold py-3 hover:from-yellow-300 hover:to-orange-400"
-            >
-              🚀 Upgrade Now
-            </Button>
+            <a href="/pricing" className="block">
+              <Button
+                className="w-full bg-gradient-to-r from-yellow-400 to-orange-500 text-black font-bold py-2.5 sm:py-3 text-sm sm:text-base hover:from-yellow-300 hover:to-orange-400 rounded-lg transition-all"
+              >
+                🚀 View Pricing Plans
+              </Button>
+            </a>
             <Button
               onClick={onClose}
-              variant="outline"
-              className="w-full border-purple-400 text-purple-100 hover:bg-purple-900/50"
+              className="w-full bg-purple-700 hover:bg-purple-600 text-white font-semibold py-2.5 sm:py-3 text-sm sm:text-base border border-purple-500 rounded-lg transition-all"
             >
               Maybe Later
             </Button>
           </div>
 
           {/* Footer */}
-          <p className="text-xs text-purple-300 mt-4">
+          <p className="text-xs sm:text-xs text-purple-300 mt-4">
             7-day money-back guarantee · Cancel anytime
           </p>
         </div>

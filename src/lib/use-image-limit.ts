@@ -12,7 +12,7 @@ export function useImageLimit() {
   const [limitState, setLimitState] = useState<ImageLimitState>({
     canGenerate: true,
     imagesGenerated: 0,
-    imagesRemaining: 5,
+    imagesRemaining: 1,
     subscription: 'free',
     limitExceeded: false,
   })

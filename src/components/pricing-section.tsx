@@ -19,9 +19,9 @@ const PRICING_TIERS: PricingTier[] = [
     name: 'Free',
     price: 0,
     currency: '₹',
-    description: '5 festival posts per month',
+    description: '4 festival posts per month',
     features: [
-      '✓ 5 festival generation posts',
+      '✓ 4 festival generation posts',
       '✓ Standard quality images',
       '✓ Basic templates',
       '✗ HD images',
@@ -155,10 +155,11 @@ export function PricingSection() {
           {PRICING_TIERS.map((tier) => (
             <Card
               key={tier.name}
-              className={`p-8 border-0 ${
+                onClick={() => handleUpgrade(tier)}
+              className={`p-8 border-0 cursor-pointer transition-all ${
                 tier.highlighted
-                  ? 'bg-gradient-to-br from-purple-600 to-purple-900 ring-2 ring-purple-400 transform scale-105'
-                  : 'bg-slate-900'
+                  ? 'bg-gradient-to-br from-purple-600 to-purple-900 ring-2 ring-purple-400 transform scale-105 hover:scale-110'
+                  : 'bg-slate-900 hover:bg-slate-800'
               }`}
             >
               {/* Tier Name */}

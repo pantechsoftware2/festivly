@@ -4,28 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-
-  if (!url || !anonKey) {
-    throw new Error('Supabase configuration missing')
-  }
-
-  return createClient(url, anonKey)
-}
+import { createServiceRoleClient } from '@/lib/supabase'
 
 function getSupabaseAdminClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !serviceKey) {
-    throw new Error('Supabase service role configuration missing')
-  }
-
-  return createClient(url, serviceKey)
+  return createServiceRoleClient()
 }
 
 export async function GET(
@@ -41,7 +23,7 @@ export async function GET(
       )
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = getSupabaseAdminClient()
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
@@ -96,8 +78,7 @@ export async function DELETE(
       )
     }
 
-    const supabase = getSupabaseClient()
-    const supabaseAdmin = getSupabaseAdminClient()
+    const supabase = getSupabaseAdminClient()
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: authError } = await supabase.auth.getUser(token)
 
@@ -137,7 +118,7 @@ export async function DELETE(
           const imagePath = `generated-images/${urlParts[1]}`
           console.log('🗑️ Deleting image from storage:', imagePath)
           
-          const { error: deleteImageError } = await supabaseAdmin.storage
+          const { error: deleteImageError } = await supabase.storage
             .from('generated-images')
             .remove([imagePath.replace('generated-images/', '')])
 

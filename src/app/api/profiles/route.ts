@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceRoleClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -33,15 +33,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Use service role key to bypass RLS policies (for signup)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          persistSession: false
-        }
-      }
-    )
+    const supabase = createServiceRoleClient()
 
     console.log('🔍 Checking if profile exists for ID:', id)
 

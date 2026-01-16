@@ -1,21 +1,11 @@
-import { createClient } from '@supabase/supabase-js'
+import { createServiceRoleClient } from '@/lib/supabase'
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-    if (!supabaseUrl || !supabaseKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error: Missing Supabase credentials' },
-        { status: 500 }
-      )
-    }
+    const supabase = createServiceRoleClient()
 
     // Use service role key for signup (user not yet authenticated)
-    const supabase = createClient(supabaseUrl, supabaseKey)
-
     const formData = await request.formData()
     const file = formData.get('logo') as File
     const userId = formData.get('userId') as string

@@ -1,17 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createServiceRoleClient } from '@/lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
-
-function getSupabaseClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!url || !key) {
-    throw new Error('Supabase configuration missing')
-  }
-
-  return createClient(url, key)
-}
 
 interface SaveProjectRequest {
   userId: string
@@ -45,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = getSupabaseClient()
+    const supabase = createServiceRoleClient()
 
     // Create a new project
     const projectId = uuidv4()

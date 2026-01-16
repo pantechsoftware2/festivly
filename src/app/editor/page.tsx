@@ -148,15 +148,17 @@ function EditorPageContent() {
       setImagesGenerated(limitInfo.imagesGenerated)
       setImagesRemaining(limitInfo.imagesRemaining)
 
-      // If user has already generated images and tries to generate again, show upgrade modal
-      if (limitInfo.imagesGenerated > 0 && limitInfo.subscription === 'free') {
-        console.log('⚠️ User trying to generate 2nd+ image, showing upgrade modal')
+      // HARD BLOCK: If user has already generated ANY images and is on free plan, prevent generation
+      // Free users get ONE free generation (4 images), then must upgrade
+      if (limitInfo.imagesGenerated >= 1 && limitInfo.subscription === 'free') {
+        console.log('⚠️ Free user already used their free generation. Showing upgrade modal.')
         setShowUpgradeModal(true)
-        return
+        return // STOP - Do not proceed with generation
       }
     } catch (err) {
       console.error('Error checking image limit:', err)
-      // Continue anyway if check fails
+      setError('Could not verify image limit. Please try again.')
+      return // STOP on error - don't proceed
     }
 
     setGenerating(true)
@@ -184,7 +186,17 @@ function EditorPageContent() {
       const elapsed = Date.now() - startTime
       console.log(`📡 Response received in ${elapsed}ms`)
 
-      // Parse response
+      // Check status BEFORE parsing JSON to avoid ReadableStream lock errors
+      // CRITICAL: 402 = Payment Required = Free user limit reached
+      if (response.status === 402) {
+        console.warn('⚠️ Upgrade required (402)')
+        console.log('📈 Showing pricing modal - free user hit limit')
+        setGenerating(false)
+        setShowUpgradeModal(true)
+        return // MUST RETURN - DO NOT PARSE RESPONSE BODY
+      }
+
+      // ONLY parse JSON if NOT 402 (402 has already returned above)
       let responseData: any = null
       try {
         responseData = await response.json()
@@ -203,6 +215,22 @@ function EditorPageContent() {
       if (responseData?.success && responseData?.images && Array.isArray(responseData.images) && responseData.images.length > 0) {
         console.log(`✅ Generation successful! Got ${responseData.images.length} images`)
         
+        // Show pricing modal after 1st generation for free users
+        if (responseData?.showPricingModal) {
+          console.log('📈 Showing pricing modal after 1st free generation')
+          setShowUpgradeModal(true)
+          // Store result but DON'T redirect - let user see pricing modal
+          setResult(responseData)
+          
+          try {
+            sessionStorage.setItem('generatedResult', JSON.stringify(responseData))
+            localStorage.setItem('lastGeneratedResult', JSON.stringify(responseData))
+          } catch (e) {
+            console.warn('⚠️ Storage error:', e)
+          }
+          return
+        }
+        
         // Store result
         setResult(responseData)
         
@@ -214,12 +242,12 @@ function EditorPageContent() {
           console.warn('⚠️ Storage error:', e)
         }
         
-        // Redirect to result page immediately
+        // Redirect to result page immediately (only if no pricing modal)
         router.push('/result')
         return
       }
 
-      // Check for API error response
+      // Check for API error response (but NEVER 402 - already returned above)
       if (responseData?.error) {
         console.error('❌ API error:', responseData.error)
         throw new Error(responseData.error)
@@ -320,6 +348,9 @@ function EditorPageContent() {
       </main>
     )
   }
+
+  // Upgrade Modal - Always render on top regardless of view
+  // FIXED: Render directly in JSX instead of as variable to ensure proper re-renders
 
   // Show "Slot Machine" Reveal when result is available
   if (result && result.images && result.images.length > 0) {
@@ -502,6 +533,15 @@ function EditorPageContent() {
             </div>
           </div>
         </div>
+        
+        {/* MODAL - ALWAYS RENDERED HERE WHEN STATE IS TRUE */}
+        <UpgradeModal
+          isOpen={showUpgradeModal}
+          onClose={() => setShowUpgradeModal(false)}
+          imagesGenerated={imagesGenerated}
+          imagesRemaining={imagesRemaining}
+          onUpgradeClick={() => setShowUpgradeModal(false)}
+        />
       </>
     )
   }
@@ -519,18 +559,6 @@ function EditorPageContent() {
           'Finalizing your design...',
         ]}
         isVisible={generating}
-      />
-      
-      {/* Upgrade Modal - Show when user tries 2nd generation */}
-      <UpgradeModal
-        isOpen={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        imagesGenerated={imagesGenerated}
-        imagesRemaining={imagesRemaining}
-        onUpgradeClick={() => {
-          setShowUpgradeModal(false)
-          router.push('/pricing')
-        }}
       />
       
       <div className="min-h-screen bg-black flex items-center justify-center p-4">
@@ -560,6 +588,15 @@ function EditorPageContent() {
           </Card>
         )}
       </div>
+      
+      {/* MODAL - ALWAYS RENDERED HERE WHEN STATE IS TRUE */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        imagesGenerated={imagesGenerated}
+        imagesRemaining={imagesRemaining}
+        onUpgradeClick={() => setShowUpgradeModal(false)}
+      />
     </>
   )
 }

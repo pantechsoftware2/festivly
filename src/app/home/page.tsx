@@ -8,6 +8,7 @@ import { useAuth } from '@/lib/auth-context'
 import { Header } from '@/components/header'
 import { Footer } from '@/components/footer'
 import { GenerationSpinner } from '@/components/generation-spinner'
+import { UpgradeModal } from '@/components/upgrade-modal'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { UPCOMING_EVENTS } from '@/lib/prompt-engine'
@@ -18,6 +19,9 @@ export default function EditorPage() {
   const [generating, setGenerating] = useState(false)
   const [selectedEvent, setSelectedEvent] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false)
+  const [imagesGenerated, setImagesGenerated] = useState(0)
+  const [imagesRemaining, setImagesRemaining] = useState(5)
 
   const handleEventClick = async (eventId: string) => {
     // Check if user is authenticated
@@ -40,6 +44,15 @@ export default function EditorPage() {
           userId: user?.id || 'anonymous',
         }),
       })
+
+      // Check for 402 Payment Required response
+      if (response.status === 402) {
+        console.warn('⚠️ Upgrade required (402)')
+        setGenerating(false)
+        setSelectedEvent(null)
+        setShowUpgradeModal(true)
+        return // Don't continue
+      }
 
       if (!response.ok) {
         const data = await response.json()
@@ -151,6 +164,15 @@ export default function EditorPage() {
           </div>
         </div>
       </section>
+
+      {/* UPGRADE MODAL */}
+      <UpgradeModal
+        isOpen={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        imagesGenerated={imagesGenerated}
+        imagesRemaining={imagesRemaining}
+        onUpgradeClick={() => setShowUpgradeModal(false)}
+      />
 
       <Footer />
     </main>

@@ -38,7 +38,7 @@ Layout & Design Requirements:
 - High resolution, 1080x1080px composition
 - Premium quality, detailed, sharp focus
 - Authentic cultural representation with modern design
-- Leave subtle space in the bottom-right area (approximately 150x150px) for potential brand logo overlay
+- Leave subtle space in the bottom-right area for potential brand logo overlay
 
 Text Requirements:
 - Include a short, punchy headline for "${event}" (max 5 words, exactly 5 words preferred)

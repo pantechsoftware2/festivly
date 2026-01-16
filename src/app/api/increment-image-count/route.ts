@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase'
+import { createServiceRoleClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
-    const supabase = createClient()
+    const supabase = createServiceRoleClient()
 
     // Get current user
     const { data: { session } } = await supabase.auth.getSession()
@@ -31,9 +31,9 @@ export async function POST(request: NextRequest) {
     const subscription = profile?.subscription_plan || 'free'
     const currentCount = profile?.free_images_generated || 0
 
-    // Only increment if free plan and under limit
-    if (subscription === 'free' && currentCount < 5) {
-      const newCount = currentCount + 1
+    // Only increment if free plan and haven't generated yet
+    if (subscription === 'free' && currentCount === 0) {
+      const newCount = 1 // Set to 1 (they've used their free generation)
 
       const { error: updateError } = await supabase
         .from('profiles')
