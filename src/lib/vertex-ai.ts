@@ -116,19 +116,23 @@ async function ensureImagenModelSelected(accessToken: string): Promise<string> {
   const project = process.env.GOOGLE_CLOUD_PROJECT_ID!
   const location = process.env.GOOGLE_CLOUD_REGION || 'us-central1'
 
+  console.log(`🔍 Probing Imagen models...`)
   // Probe Imagen-4 candidates
   for (const candidate of IMAGEN4_CANDIDATES) {
+    console.log(`   Trying: ${candidate}`)
     const result = await probeModelAvailability(candidate, accessToken, project, location)
     if (result.available) {
-      console.log(`✅ Using model: ${candidate}`)
+      console.log(`✅ Model available: ${candidate}`)
       _selectedImagenModel = candidate
       _lastModelCheck = Date.now()
       return _selectedImagenModel
+    } else {
+      console.log(`   ❌ ${candidate}: not available`)
     }
   }
 
   // Fallback to Imagen-3
-  console.log(`⚠️ No Imagen-4 available, using Imagen-3`)
+  console.log(`⚠️ No Imagen-4 available, falling back to Imagen-3`)
   _selectedImagenModel = IMAGEN3_FALLBACK
   _lastModelCheck = Date.now()
   return _selectedImagenModel
@@ -326,20 +330,42 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         console.log(`📸 Got ${data.predictions.length} predictions from API`)
         for (let i = 0; i < data.predictions.length; i++) {
           const prediction = data.predictions[i]
-          if (prediction.bytesBase64Encoded) {
+          
+          // Try multiple field names for the base64 image data
+          let imageData = prediction.bytesBase64Encoded || 
+                         prediction.imageData ||
+                         prediction.image ||
+                         prediction.b64Encoded ||
+                         (typeof prediction === 'string' ? prediction : null)
+          
+          // If prediction is an object with a nested structure, try to find the image
+          if (!imageData && typeof prediction === 'object') {
+            const firstKey = Object.keys(prediction)[0]
+            if (firstKey && typeof prediction[firstKey] === 'string') {
+              imageData = prediction[firstKey]
+            }
+          }
+          
+          if (imageData && typeof imageData === 'string' && imageData.length > 100) {
             // Add data URI prefix for PNG
-            const imageSize = prediction.bytesBase64Encoded.length
+            const imageSize = imageData.length
             console.log(`   ✅ Image ${i + 1}: ${(imageSize / 1024).toFixed(2)} KB`)
-            images.push(`data:image/png;base64,${prediction.bytesBase64Encoded}`)
+            images.push(`data:image/png;base64,${imageData}`)
           } else {
-            console.warn(`   ❌ Image ${i + 1}: No bytesBase64Encoded in prediction`)
+            console.warn(`   ⚠️ Image ${i + 1}: Could not extract image data from prediction`)
+            console.warn(`      Prediction keys:`, Object.keys(prediction).join(', '))
           }
         }
       }
       
       if (images.length === 0) {
-        console.warn('⚠️ No predictions in response, returning placeholder')
-        return [createPlaceholderImage(options.prompt)]
+        console.warn('⚠️ No valid images extracted from predictions, returning 4 placeholders')
+        return [
+          createPlaceholderImage(options.prompt),
+          createPlaceholderImage(options.prompt),
+          createPlaceholderImage(options.prompt),
+          createPlaceholderImage(options.prompt),
+        ]
       }
       
       console.log(`✅ Generated ${images.length} real images`)

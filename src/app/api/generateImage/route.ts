@@ -323,9 +323,9 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         const imageId = uuidv4()
         const timestamp = new Date().toISOString()
 
-        // Check if this is a placeholder image (data URL)
-        if (base64.startsWith('data:image/')) {
-          console.log(`   📌 Image ${i + 1} is a placeholder (data URL)`)
+        // Check if this is a placeholder image (SVG data URL, not PNG)
+        if (base64.startsWith('data:image/svg+xml')) {
+          console.log(`   📌 Image ${i + 1} is a placeholder (SVG)`)
           generatedImages.push({
             id: imageId,
             url: base64, // Use data URL directly
