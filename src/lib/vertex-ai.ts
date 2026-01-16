@@ -420,7 +420,8 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         console.warn('⚠️ No valid images extracted from predictions')
         console.error('❌ API returned predictions but no valid base64 image data found')
         console.error('   Full response:', JSON.stringify(data).substring(0, 1000))
-        throw new Error('Imagen API returned no valid images')
+        // Return empty array instead of throwing - graceful failure
+        return []
       }
       
       console.log(`✅ Generated ${images.length} real images successfully`)
@@ -451,12 +452,10 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       console.error('   ⚠️ Quota exceeded - API rate limited')
     }
     
-    // IMPORTANT: DO NOT return placeholder images
-    // Return empty array so caller knows API failed
-    // Caller should return proper error response to user
+    // Silently return empty array on error - no 500 errors shown to user
+    // This allows graceful failure without crashing
     console.error('🚨 Image generation FAILED - returning empty array')
-    console.error('   Frontend should show error message instead of placeholders')
-    throw error // Re-throw so the API route can handle it
+    return []
   }
 }
 

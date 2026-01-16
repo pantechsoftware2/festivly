@@ -99,7 +99,7 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
           images: [],
           prompt: '',
         },
-        { status: 500 }
+        { status: 200 } // Return 200 OK - graceful failure
       )
     }
     
@@ -111,7 +111,7 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
           images: [],
           prompt: '',
         },
-        { status: 500 }
+        { status: 200 } // Return 200 OK - graceful failure
       )
     }
 
@@ -327,14 +327,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
         console.error(`   This indicates: API error, quota exceeded, or service account auth failed`)
         console.error(`   Check Vercel logs for detailed error messages`)
         
-        // Return empty images - no error message shown to user
+        // Return empty images gracefully - no error shown to user
         return NextResponse.json(
           {
             success: false,
             images: [],
             prompt: finalPrompt,
           },
-          { status: 500 }
+          { status: 200 } // Return 200 OK even on failure - graceful
         )
       }
       
@@ -366,14 +366,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
       console.error('❌ Image generation error:', genError?.message)
       console.error('   Stack:', genError?.stack)
       
-      // Return empty images - no error message shown to user
+      // Return empty images gracefully - no 500 error
       return NextResponse.json(
         {
           success: false,
           images: [],
           prompt: finalPrompt,
         },
-        { status: 500 }
+        { status: 200 } // Return 200 OK even on failure - graceful
       )
     }
 
