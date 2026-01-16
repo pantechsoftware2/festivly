@@ -28,29 +28,28 @@ export function generatePrompt(event: string, industry: string): string {
   const indKeywords = industryKeywords[industry as keyof typeof industryKeywords] || industryKeywords["Education"]
   const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"]
 
-  const prompt = `Create a high-quality, professional social media image for ${event}. The brand is in the ${industry} sector.
+  const prompt = `Create a stunning, high-quality, professional social media image for ${event}. The brand is in the ${industry} sector.
 
-Visual Style: Blend these elements seamlessly - ${indKeywords} combined with ${evtKeywords}.
+Visual Composition:
+- Modern, vibrant, eye-catching professional design
+- Seamlessly blend: ${indKeywords}
+- Incorporate: ${evtKeywords}
+- Composition: balanced, professional, premium quality
+- Resolution: optimized for 1080x1350 aspect ratio
+- Colors: saturated, vibrant, professional palette
+- Detail level: high detail, sharp focus, professional photography quality
 
-Layout & Design Requirements:
-- Professional, vibrant, eye-catching composition
-- Suitable for Instagram, Facebook, and LinkedIn
-- High resolution, 1080x1080px composition
-- Premium quality, detailed, sharp focus
-- Authentic cultural representation with modern design
-- Leave subtle space in the bottom-right area for potential brand logo overlay
+Design Requirements:
+- Suitable for Instagram Stories, Feed, and LinkedIn
+- Clean, uncluttered composition
+- Professional typography with event name prominently displayed
+- Cultural authenticity mixed with modern design trends
+- Reserve bottom-right corner (15% space) for brand logo overlay
+- Premium color grading and lighting
 
-Text Requirements:
-- Include a short, punchy headline for "${event}" (max 5 words, exactly 5 words preferred)
-- Position headline at the top-center or upper portion of the image
-- Use bold, large, legible font
-- Ensure high contrast for readability against the background
-- Text color must be clearly visible (white, yellow, or other high-contrast colors)
-- Text should NOT be placed in the bottom-right corner (reserved for logo)
-
-Additional Notes:
-- No watermarks or branding other than the headline text
-- Focus on creating a balanced, professional design with room for logo overlay`
+Critical: Generate ACTUAL photograph/artwork, NOT text overlay. Do NOT include watermarks.
+Style: Professional, polished, premium quality - suitable for corporate marketing.
+Photography style: high-quality stock photography or realistic AI-generated art.`
 
   return prompt
 }

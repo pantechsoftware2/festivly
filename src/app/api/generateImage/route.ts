@@ -278,6 +278,19 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
       console.log(`🎨 API returned ${base64Images.length} base64 images`)
       
+      // CHECK IF THESE ARE PLACEHOLDER IMAGES
+      const realImageCount = base64Images.filter(img => !img.startsWith('data:image/svg+xml')).length
+      const placeholderCount = base64Images.filter(img => img.startsWith('data:image/svg+xml')).length
+      
+      console.log(`   Real images: ${realImageCount}`)
+      console.log(`   Placeholder SVG images: ${placeholderCount}`)
+      
+      if (placeholderCount > 0) {
+        console.warn(`⚠️ PRODUCTION ISSUE: Received ${placeholderCount} placeholder images instead of real Imagen-4 output`)
+        console.warn(`   This indicates the Vertex AI API failed or response parsing is broken`)
+        console.warn(`   Check logs above for API error details`)
+      }
+      
       // CRITICAL CHECK: Detect if only 1 image returned (may be placeholder/fallback)
       if (base64Images.length === 1) {
         console.warn(`⚠️ WARNING: Only 1 image returned instead of 4`)

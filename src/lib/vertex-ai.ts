@@ -321,7 +321,15 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
       }
       
       const data = await response.json()
-      console.log(`📡 API Response:`, JSON.stringify(data).substring(0, 200))
+      console.log(`📡 API Response keys:`, Object.keys(data))
+      console.log(`📡 API Response predictions count:`, data.predictions?.length || 0)
+      
+      if (data.predictions && Array.isArray(data.predictions)) {
+        console.log(`   Prediction 0 keys:`, Object.keys(data.predictions[0] || {}))
+        const pred0Str = JSON.stringify(data.predictions[0])
+        console.log(`   Prediction 0 length: ${pred0Str.length} chars`)
+        console.log(`   Prediction 0 value (first 200 chars):`, pred0Str.substring(0, 200))
+      }
       
       // Extract base64 images from response
       const images: string[] = []
@@ -331,44 +339,65 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         for (let i = 0; i < data.predictions.length; i++) {
           const prediction = data.predictions[i]
           
-          // Try multiple field names for the base64 image data
-          let imageData = prediction.bytesBase64Encoded || 
-                         prediction.imageData ||
-                         prediction.image ||
-                         prediction.b64Encoded ||
-                         (typeof prediction === 'string' ? prediction : null)
+          // Imagen-4 returns base64 image in 'bytesBase64Encoded' field
+          // But also try other common field names
+          let imageData = null
+          let foundFieldName = ''
           
-          // If prediction is an object with a nested structure, try to find the image
-          if (!imageData && typeof prediction === 'object') {
-            const firstKey = Object.keys(prediction)[0]
-            if (firstKey && typeof prediction[firstKey] === 'string') {
-              imageData = prediction[firstKey]
+          // List of fields to check in order
+          const fieldsToCheck = ['bytesBase64Encoded', 'imageBytes', 'base64', 'imageData', 'image', 'b64Encoded']
+          
+          if (typeof prediction === 'string' && prediction.length > 1000) {
+            // Direct string response (raw base64)
+            imageData = prediction
+            foundFieldName = 'direct-string'
+          } else if (typeof prediction === 'object' && prediction !== null) {
+            // Check each field
+            for (const fieldName of fieldsToCheck) {
+              const value = prediction[fieldName]
+              if (value && typeof value === 'string' && value.length > 1000) {
+                imageData = value
+                foundFieldName = fieldName
+                console.log(`   ✅ Image ${i + 1}: Found in field "${fieldName}" (${(value.length / 1024).toFixed(2)} KB)`)
+                break
+              }
+            }
+            
+            // If still not found, log all fields and their sizes for debugging
+            if (!imageData) {
+              const fieldInfo = Object.entries(prediction)
+                .map(([k, v]) => {
+                  if (typeof v === 'string') return `${k}:${v.length}chars`
+                  if (typeof v === 'object') return `${k}:object`
+                  return `${k}:${typeof v}`
+                })
+                .join('; ')
+              console.warn(`   ⚠️ Image ${i + 1}: No image field found. Fields: ${fieldInfo}`)
             }
           }
           
-          if (imageData && typeof imageData === 'string' && imageData.length > 100) {
+          if (imageData && typeof imageData === 'string' && imageData.length > 1000) {
             // Add data URI prefix for PNG
             const imageSize = imageData.length
-            console.log(`   ✅ Image ${i + 1}: ${(imageSize / 1024).toFixed(2)} KB`)
+            console.log(`   ✅ Image ${i + 1}: Ready (field: ${foundFieldName}, size: ${(imageSize / 1024).toFixed(2)} KB)`)
             images.push(`data:image/png;base64,${imageData}`)
           } else {
-            console.warn(`   ⚠️ Image ${i + 1}: Could not extract image data from prediction`)
-            console.warn(`      Prediction keys:`, Object.keys(prediction).join(', '))
+            console.warn(`   ⚠️ Image ${i + 1}: Could not extract valid image data`)
+            if (imageData) {
+              console.warn(`      Got data but length ${imageData.length} < 1000`)
+            }
           }
         }
       }
       
       if (images.length === 0) {
-        console.warn('⚠️ No valid images extracted from predictions, returning 4 placeholders')
-        return [
-          createPlaceholderImage(options.prompt),
-          createPlaceholderImage(options.prompt),
-          createPlaceholderImage(options.prompt),
-          createPlaceholderImage(options.prompt),
-        ]
+        console.warn('⚠️ No valid images extracted from predictions')
+        console.error('❌ API returned predictions but no valid base64 image data found')
+        console.error('   Full response:', JSON.stringify(data).substring(0, 1000))
+        throw new Error('Imagen API returned no valid images')
       }
       
-      console.log(`✅ Generated ${images.length} real images`)
+      console.log(`✅ Generated ${images.length} real images successfully`)
       return images
     } finally {
       clearTimeout(timeoutId)
@@ -376,10 +405,29 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
     
   } catch (error: any) {
     // Log the actual error so we can see what went wrong
-    console.error('🔴 generateImages error:', error?.message || error)
+    console.error('🔴 generateImages error:', {
+      message: error?.message,
+      code: error?.code,
+      status: error?.status,
+      stack: error?.stack?.substring(0, 200),
+    })
+    
+    // If network error or timeout, log it specifically
+    if (error?.name === 'AbortError') {
+      console.error('   ⏰ Request timed out after 45 seconds')
+    }
+    
+    if (error?.message?.includes('401') || error?.message?.includes('403')) {
+      console.error('   🔐 Authentication/authorization issue - check service account credentials')
+    }
+    
+    if (error?.message?.includes('429')) {
+      console.error('   ⚠️ Quota exceeded - API rate limited')
+    }
     
     // Return 4 placeholder images on any error instead of throwing
     try {
+      console.warn('📋 Falling back to placeholder images')
       return [
         createPlaceholderImage(options.prompt),
         createPlaceholderImage(options.prompt),
@@ -387,6 +435,7 @@ export async function generateImages(options: ImageGenerationOptions): Promise<s
         createPlaceholderImage(options.prompt),
       ]
     } catch (e) {
+      console.error('   🚨 Even placeholder generation failed:', e)
       return []
     }
   }
