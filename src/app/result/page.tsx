@@ -398,6 +398,13 @@ export default function ResultPage() {
     }
   }
 
+  // Redirect to home if no images (top-level hook, not conditional)
+  useEffect(() => {
+    if (!loading && (!result || !result.images || result.images.length === 0)) {
+      router.push('/home')
+    }
+  }, [loading, result, router])
+
   if (loading) {
     return (
       <main className="min-h-screen bg-gradient-to-b from-slate-950 via-purple-950/20 to-slate-950">
@@ -410,10 +417,7 @@ export default function ResultPage() {
   }
 
   if (!result || !result.images || result.images.length === 0) {
-    // No images - silently redirect to home
-    useEffect(() => {
-      router.push('/home')
-    }, [router])
+    // Already redirecting via useEffect above
     return null
   }
 
