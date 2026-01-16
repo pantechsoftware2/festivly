@@ -365,17 +365,28 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
     // INCREMENT COUNTER: Increment free user's generation count after successful generation
     // This tracks how many times they've generated (not how many images)
+    // CRITICAL: Use database-level atomic update to prevent race conditions in production
     if (userId && userSubscription === 'free' && imagesGenerated === 0) {
       try {
         const supabase = getSupabaseClient()
-        const newCount = 1 // They've now generated once
         
-        await supabase
+        // Use RPC or direct update with WHERE clause to ensure atomicity
+        // Only increment if still at 0 to prevent race condition
+        const { error: updateError, data: updateData } = await supabase
           .from('profiles')
-          .update({ free_images_generated: newCount })
+          .update({ free_images_generated: 1 })
           .eq('id', userId)
+          .eq('free_images_generated', 0) // Only update if still at 0
+          .select('free_images_generated')
         
-        console.log(`✅ Updated user ${userId} generation count: ${imagesGenerated} → ${newCount}`)
+        if (updateError) {
+          console.error('❌ Failed to update generation count:', updateError?.message)
+        } else if (updateData && updateData.length > 0) {
+          console.log(`✅ Updated user ${userId} generation count: 0 → 1`)
+        } else {
+          // Update failed because free_images_generated was not 0 (someone else incremented)
+          console.warn(`⚠️ Could not increment user ${userId} - already incremented by another request`)
+        }
       } catch (err: any) {
         console.error('❌ Failed to update generation count:', err?.message)
         // Don't block the response if increment fails - images already generated
