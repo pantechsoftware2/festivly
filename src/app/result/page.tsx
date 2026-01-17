@@ -108,6 +108,7 @@ export default function ResultPage() {
     if (user?.id) {
       const fetchUserLogoEagerly = async () => {
         const cacheKey = `logo_${user.id}`
+        console.log(`🔍 Fetching logo for user: ${user.id}`)
         
         // Check cache immediately (5 minute TTL)
         const cached = localStorage.getItem(cacheKey)
@@ -118,7 +119,7 @@ export default function ResultPage() {
             if (age < 5 * 60 * 1000) {
               if (url) {
                 setUserLogo(url)
-                console.log('✅ Logo ready from cache')
+                console.log('✅ Logo ready from cache:', url.substring(0, 50))
               }
               return // Don't fetch if cache is fresh
             }
@@ -130,25 +131,27 @@ export default function ResultPage() {
         // Fetch fresh logo with very aggressive timeout
         try {
           const controller = new AbortController()
-          const timeoutId = setTimeout(() => controller.abort(), 2000) // 2 second timeout
+          const timeoutId = setTimeout(() => controller.abort(), 3000) // 3 second timeout
           
-          const res = await fetch(`/api/profiles/${user.id}`, {
-            signal: controller.signal,
-          })
+          const res = await fetch(`/api/profiles/${user.id}`)
           clearTimeout(timeoutId)
           
           if (!res.ok) {
-            console.debug('Logo API error')
+            console.warn('⚠️ Logo API error:', res.status)
             return
           }
           
           const data = await res.json()
+          console.log('📡 Profile API response:', { hasLogo: !!data?.brand_logo_url, logoLength: data?.brand_logo_url?.length })
+          
           if (!data?.brand_logo_url) {
-            console.debug('No logo in profile')
+            console.warn('⚠️ No logo in profile')
             return
           }
           
           const url = data.brand_logo_url.trim()
+          console.log('🔗 Logo URL from API:', url.substring(0, 50))
+          
           if (url.length > 5 && (url.startsWith('http://') || url.startsWith('https://'))) {
             // Cache valid logo
             try {
@@ -160,11 +163,11 @@ export default function ResultPage() {
               // localStorage might be full
             }
             setUserLogo(url)
-            console.log('✅ Logo ready from API')
+            console.log('✅ Logo ready from API:', url.substring(0, 50))
           }
         } catch (err) {
           if (err instanceof Error && err.name !== 'AbortError') {
-            console.debug('Logo fetch error:', err)
+            console.warn('⚠️ Logo fetch error:', err.message)
           }
         }
       }
@@ -172,6 +175,7 @@ export default function ResultPage() {
       // Start fetching immediately (don't wait for anything)
       fetchUserLogoEagerly()
     } else {
+      console.warn('⚠️ No user ID available for logo fetch')
       setUserLogo(null)
     }
   }, [user])
@@ -289,18 +293,23 @@ export default function ResultPage() {
 
         // Load and draw logo if provided and valid
         if (logoUrl && logoUrl.length > 10 && (logoUrl.startsWith('http://') || logoUrl.startsWith('https://'))) {
+          console.log(`🏷️ Drawing logo for image ${imageId}:`, logoUrl.substring(0, 50))
           try {
             const logoImg = await loadImageWithTimeout(logoUrl, 5000)
             
             if (logoImg.width > 0 && logoImg.height > 0) {
               // Draw logo directly without background frame
               ctx.drawImage(logoImg, logoX, logoY, logoSize, logoSize)
-              console.log(`✅ Logo drawn at (${logoX}, ${logoY}) size: ${logoSize}px`)
+              console.log(`✅ Logo drawn at (${logoX}, ${logoY}) size: ${logoSize}px, image: ${logoImg.width}x${logoImg.height}`)
+            } else {
+              console.warn(`⚠️ Logo image has no dimensions: ${logoImg.width}x${logoImg.height}`)
             }
           } catch (logoErr) {
             // Logo failed to load - continue without it
-            console.debug('Logo load failed:', logoErr)
+            console.warn('⚠️ Logo load failed:', logoErr)
           }
+        } else {
+          console.warn(`⚠️ Invalid logo URL:`, logoUrl?.substring(0, 50))
         }
 
         // Finalize and save
@@ -317,6 +326,7 @@ export default function ResultPage() {
     }
 
     // Apply with selected position (each overlay draws AFTER the main image loads)
+    console.log(`🎨 Applying logo overlay - userLogo: ${userLogo?.substring(0, 50) || 'NONE'}, images: ${result?.images.length || 0}`)
     result.images.forEach(img => {
       applyLogoOverlay(img.url, userLogo, img.id, logoPosition, result.eventName)
     })
