@@ -35,6 +35,10 @@ export default function EditorPage() {
     setError(null)
 
     try {
+      // Generate unique request ID to prevent duplicate processing
+      const requestId = `${user.id}-${Date.now()}-${Math.random().toString(36).substring(7)}`
+      console.log(`🔑 Request ID: ${requestId}`)
+
       // Call the generation API with event + user industry
       const response = await fetch('/api/generateImage', {
         method: 'POST',
@@ -42,6 +46,7 @@ export default function EditorPage() {
         body: JSON.stringify({
           eventId: eventId,
           userId: user?.id || 'anonymous',
+          requestId: requestId,
         }),
       })
 
