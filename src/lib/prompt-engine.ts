@@ -52,6 +52,7 @@ CRITICAL REQUIREMENTS:
 - NO collage arrangements, NO multiple separate scenes, NO grid layouts, NO side-by-side comparisons
 - Seamlessly blend industry + event concepts into ONE cohesive visual scene
 - NO text overlays, NO watermarks, NO decorative elements
+- NO frames, NO borders, NO decorative edges
 - Clean composition without external frames or borders
 - Leave bottom-right corner clear for logo (150x150px space)
 - Professional lighting, sharp focus, rich colors
