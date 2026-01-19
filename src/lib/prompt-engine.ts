@@ -67,6 +67,8 @@ CRITICAL REQUIREMENTS:
 
 Style: Premium professional photography, 1080x1350 format. Full bleed image with NO BORDERS. Centered composition with safe margins.`
 
+  console.log(`📝 Prompt Engine - Generated prompt for ${event} (${industry}): ${prompt.length} characters`)
+  
   return prompt
 }
 

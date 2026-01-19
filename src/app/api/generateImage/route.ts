@@ -405,6 +405,12 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     console.log(`   Environment confirmed - Project: ${process.env.GOOGLE_CLOUD_PROJECT_ID}`)
     console.log(`   Service key ready: ${!!process.env.GOOGLE_SERVICE_ACCOUNT_KEY}`)
     console.log(`   Region: ${process.env.GOOGLE_CLOUD_REGION || 'us-central1'}`)
+    
+    // LOG FULL PROMPT TEXT FOR DEBUGGING
+    console.log(`\n📝 FULL PROMPT TEXT (${finalPrompt.length} chars):`)
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
+    console.log(finalPrompt)
+    console.log(`━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`)
 
     // Generate 4 images (or call multiple times)
     let base64Images: string[] = []
