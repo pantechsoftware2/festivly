@@ -44,7 +44,7 @@ export default function ResultPage() {
     }
   }, [user, authLoading, router])
 
-  // Redirect to home if no images
+  // Redirect to home if no images or only placeholder images (quota error)
   useEffect(() => {
     if (!loading && (!result || !result.images || result.images.length === 0)) {
       router.push('/home')

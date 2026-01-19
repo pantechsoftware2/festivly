@@ -44,7 +44,8 @@ export async function GET(
       email: data?.email,
       industry_type: data?.industry_type,
       has_logo: !!data?.brand_logo_url,
-      logo_url: data?.brand_logo_url?.substring(0, 50)
+      logo_url: data?.brand_logo_url, // Full URL for debugging
+      logo_length: data?.brand_logo_url?.length || 0
     })
 
     return NextResponse.json(data)
