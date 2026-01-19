@@ -51,14 +51,17 @@ CRITICAL REQUIREMENTS:
 - SINGLE UNIFIED COMPOSITION - NOT a collage, split-screen, or multi-panel layout
 - NO collage arrangements, NO multiple separate scenes, NO grid layouts, NO side-by-side comparisons
 - Seamlessly blend industry + event concepts into ONE cohesive visual scene
+- ABSOLUTELY NO FRAMES - no colored borders, no decorative edges, no frame structure around the image content
+- NO left/right side frames or borders of any kind
+- NO top/bottom frame decorations or borders
 - NO text overlays, NO watermarks, NO decorative elements
-- NO frames, NO borders, NO decorative edges
-- Clean composition without external frames or borders
+- Clean composition without external frames, margins, or border structures
+- Image fills the entire canvas edge to edge with NO empty space reserved for frames
 - Leave bottom-right corner clear for logo (150x150px space)
 - Professional lighting, sharp focus, rich colors
 - Suitable for corporate/business use
 
-Style: Premium professional photography, 1080x1350 format`
+Style: Premium professional photography, 1080x1350 format. Full bleed image with NO BORDERS.`
 
   return prompt
 }
