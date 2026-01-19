@@ -13,6 +13,7 @@ import { v4 as uuidv4 } from 'uuid'
 // Prevent duplicate concurrent requests with Promise-based queue
 const requestInProgress = new Map<string, Promise<any>>()
 const requestResults = new Map<string, any>()
+const lastRequestTime = new Map<string, number>() // Track last request time per user
 
 /**
  * Add logo overlay to base64 image (using Canvas API via jimp or simple approach)
@@ -176,6 +177,26 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
         { status: 400 }
       )
     }
+
+    // PRODUCTION FIX: Add rate limiting - prevent requests within 5 seconds from same user
+    const userKey = userId || 'anon'
+    const now = Date.now()
+    const lastTime = lastRequestTime.get(userKey) || 0
+    const timeSinceLastRequest = now - lastTime
+    
+    if (timeSinceLastRequest < 5000) {
+      console.warn(`⚠️ RATE LIMIT: User ${userKey} requested again after ${timeSinceLastRequest}ms (min 5000ms)`)
+      return NextResponse.json(
+        {
+          success: false,
+          images: [],
+          prompt: '',
+          error: 'Please wait a moment before generating another image',
+        },
+        { status: 429 } // Return 429 - Too Many Requests
+      )
+    }
+    lastRequestTime.set(userKey, now)
 
     // Deduplicate concurrent requests - if same request is in progress, wait for it
     const cacheKey = getCacheKey(userId || 'anon', userPrompt || eventId || '')
