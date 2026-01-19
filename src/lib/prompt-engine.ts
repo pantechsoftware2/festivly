@@ -57,11 +57,15 @@ CRITICAL REQUIREMENTS:
 - NO text overlays, NO watermarks, NO decorative elements
 - Clean composition without external frames, margins, or border structures
 - Image fills the entire canvas edge to edge with NO empty space reserved for frames
-- Leave bottom-right corner clear for logo (150x150px space)
+- COMPOSITION: Main subject/focal point centered and fully visible in top 80% of frame
+- SAFE ZONE: Keep important content away from bottom-right corner (reserved for logo placement)
+- Leave bottom-right corner area (150x150px) with minimal visual clutter for logo overlay
 - Professional lighting, sharp focus, rich colors
 - Suitable for corporate/business use
+- NO cutting of important visual elements at any edge
+- Ensure all key elements fit completely within canvas without cropping
 
-Style: Premium professional photography, 1080x1350 format. Full bleed image with NO BORDERS.`
+Style: Premium professional photography, 1080x1350 format. Full bleed image with NO BORDERS. Centered composition with safe margins.`
 
   return prompt
 }

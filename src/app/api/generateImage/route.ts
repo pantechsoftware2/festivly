@@ -128,10 +128,12 @@ async function handleGenerateImage(request: NextRequest): Promise<NextResponse<G
     const hasSupabaseKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
     
     console.log(`\n📋 API REQUEST - Environment Status:`)
-    console.log(`   Google Project ID: ${hasProjectId ? '✅' : '❌'}`)
-    console.log(`   Google Service Key: ${hasServiceKey ? '✅' : '❌'}`)
-    console.log(`   Supabase URL: ${hasSupabaseUrl ? '✅' : '❌'}`)
-    console.log(`   Supabase Service Key: ${hasSupabaseKey ? '✅' : '❌'}`)
+    console.log(`   Google Project ID: ${hasProjectId ? '✅' : '❌'} ${process.env.GOOGLE_CLOUD_PROJECT_ID || ''}`)
+    console.log(`   Google Service Key: ${hasServiceKey ? '✅' : '❌'} (${process.env.GOOGLE_SERVICE_ACCOUNT_KEY?.length || 0} chars)`)
+    console.log(`   Supabase URL: ${hasSupabaseUrl ? '✅' : '❌'} ${process.env.NEXT_PUBLIC_SUPABASE_URL?.substring(0, 50) || ''}`)
+    console.log(`   Supabase Service Key: ${hasSupabaseKey ? '✅' : '❌'} (${process.env.SUPABASE_SERVICE_ROLE_KEY?.length || 0} chars)`)
+    console.log(`   Node Environment: ${process.env.NODE_ENV}`)
+    console.log(`   Vercel Environment: ${process.env.VERCEL_ENV}`)
     
     if (!hasProjectId || !hasServiceKey) {
       console.error(`🚨 PRODUCTION CONFIG ERROR: Missing Google Cloud credentials`)
