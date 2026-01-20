@@ -19,19 +19,7 @@ export default function AuthCallback() {
 
         if (data.session) {
           const user = data.session.user
-          // Read all sessionStorage values immediately
-          const pendingIndustry = typeof window !== 'undefined' 
-            ? sessionStorage.getItem('pending_industry') 
-            : null
-          const pendingLogoBase64 = typeof window !== 'undefined' 
-            ? sessionStorage.getItem('pending_logo_base64') 
-            : null
-          const pendingLogoName = typeof window !== 'undefined' 
-            ? sessionStorage.getItem('pending_logo_name') 
-            : null
-          const pendingLogoType = typeof window !== 'undefined' 
-            ? sessionStorage.getItem('pending_logo_type') 
-            : null
+          // Check if this is a new signup
           const isNewSignup = typeof window !== 'undefined' 
             ? sessionStorage.getItem('is_new_signup') === 'true'
             : false
@@ -40,23 +28,7 @@ export default function AuthCallback() {
             userId: user?.id,
             email: user?.email,
             userProvider: user?.app_metadata?.provider,
-            hasPendingLogo: !!pendingLogoBase64,
-            pendingLogoName,
-            pendingIndustry,
-            hasPendingIndustry: !!pendingIndustry,
             isNewSignup
-          })
-          console.log('📦 SessionStorage contents:', {
-            'pending_industry': pendingIndustry,
-            'pending_logo_base64': pendingLogoBase64 ? 'EXISTS' : 'MISSING',
-            'pending_logo_name': pendingLogoName,
-            'is_new_signup': isNewSignup
-          })
-          console.log('🔍 Detailed value check:', {
-            'pendingIndustry is null?': pendingIndustry === null,
-            'pendingIndustry is empty string?': pendingIndustry === '',
-            'pendingIndustry actual value': JSON.stringify(pendingIndustry),
-            'hasPendingIndustry': !!pendingIndustry
           })
 
           // Check if user already has a profile in the database
@@ -75,73 +47,20 @@ export default function AuthCallback() {
             }
           }
 
-          // If this is a NEW signup, always update the profile with industry and logo
+          // If this is a NEW signup, create a basic profile
           if (user?.id && isNewSignup) {
             console.log('✨ Processing new Google signup for user:', user.id)
-            let logoUrl: string | null = null
 
-            // Upload logo if provided
-            if (pendingLogoBase64 && pendingLogoName) {
-              try {
-                console.log('🔷 Starting logo upload for user:', user.id)
-                // Convert base64 to blob
-                const byteCharacters = atob(pendingLogoBase64.split(',')[1])
-                const byteNumbers = new Array(byteCharacters.length)
-                for (let i = 0; i < byteCharacters.length; i++) {
-                  byteNumbers[i] = byteCharacters.charCodeAt(i)
-                }
-                const byteArray = new Uint8Array(byteNumbers)
-                const mimeType = pendingLogoType || 'image/jpeg'
-                const blob = new Blob([byteArray], { type: mimeType })
-                const logoFile = new File([blob], pendingLogoName, { type: mimeType })
-
-                console.log('📦 Logo file prepared:', { name: logoFile.name, size: logoFile.size, type: logoFile.type })
-
-                // Upload logo
-                const formData = new FormData()
-                formData.append('logo', logoFile)
-                formData.append('userId', user.id)
-
-                const uploadResponse = await fetch('/api/signup/upload-logo', {
-                  method: 'POST',
-                  body: formData,
-                })
-
-                console.log('📤 Upload response status:', uploadResponse.status)
-
-                if (uploadResponse.ok) {
-                  const uploadResult = await uploadResponse.json()
-                  logoUrl = uploadResult.logoUrl
-                  console.log('✅ Logo uploaded successfully:', logoUrl)
-                } else {
-                  const errorText = await uploadResponse.text()
-                  console.error('❌ Logo upload failed:', uploadResponse.status, errorText)
-                }
-              } catch (logoError: any) {
-                console.error('❌ Logo upload error:', logoError.message)
-                // Logo upload failed - continue without logo
-              }
-            }
-
-            // Create or update user profile with industry and logo
+            // Create user profile (without industry and logo)
             try {
-              const profileData: any = {
+              const profileData = {
                 id: user.id,
                 email: user.email || null,
                 subscription_plan: 'free', // CRITICAL: Default for new signups
                 free_images_generated: 0,  // CRITICAL: Initialize counter
-                industry_type: pendingIndustry || null,  // Always include
-                brand_logo_url: logoUrl || null,  // Always include (even if null)
               }
 
-              console.log('💾 CALLBACK - Upserting Google profile with:', {
-                id: user.id,
-                email: user.email,
-                industry_type: pendingIndustry || null,
-                brand_logo_url: logoUrl || null,
-                subscription_plan: 'free',
-                free_images_generated: 0
-              })
+              console.log('💾 CALLBACK - Creating Google profile with:', profileData)
 
               // Use the same profiles endpoint for consistency
               const profileResponse = await fetch('/api/profiles', {
@@ -159,10 +78,8 @@ export default function AuthCallback() {
                 console.error('❌ Profile save error:', profileError)
               } else {
                 const profileResult = await profileResponse.json()
-                console.log('✅ Profile created/updated successfully:', {
-                  id: profileResult.profile?.id,
-                  industry_type: profileResult.profile?.industry_type,
-                  brand_logo_url: profileResult.profile?.brand_logo_url
+                console.log('✅ Profile created successfully:', {
+                  id: profileResult.profile?.id
                 })
               }
             } catch (profileError: any) {
@@ -202,12 +119,8 @@ export default function AuthCallback() {
 
           // ✅ CLEAR sessionStorage AFTER all async operations are complete
           if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('pending_industry')
-            sessionStorage.removeItem('pending_logo_base64')
-            sessionStorage.removeItem('pending_logo_name')
-            sessionStorage.removeItem('pending_logo_type')
             sessionStorage.removeItem('is_new_signup')
-            console.log('✅ Cleared all pending data from sessionStorage')
+            console.log('✅ Cleared pending data from sessionStorage')
           }
 
           router.push('/')

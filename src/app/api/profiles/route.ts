@@ -4,16 +4,17 @@ import { createServiceRoleClient } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated } = body
+    const { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated, brand_style_context } = body
 
-    console.log('📨 Profile API received request with body:', { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated })
+    console.log('📨 Profile API received request with body:', { id, email, industry_type, brand_logo_url, subscription_plan, free_images_generated, brand_style_context })
     console.log('📊 Value types check:', {
       id_type: typeof id,
       email_type: typeof email,
       industry_type_type: typeof industry_type,
       industry_type_value: industry_type,
       brand_logo_url_type: typeof brand_logo_url,
-      brand_logo_url_value: brand_logo_url
+      brand_logo_url_value: brand_logo_url,
+      brand_style_context_type: typeof brand_style_context
     })
 
     if (!id) {
@@ -56,6 +57,7 @@ export async function POST(request: NextRequest) {
     if (brand_logo_url !== undefined) profilePayload.brand_logo_url = brand_logo_url
     if (subscription_plan !== undefined) profilePayload.subscription_plan = subscription_plan
     if (free_images_generated !== undefined) profilePayload.free_images_generated = free_images_generated
+    if (brand_style_context !== undefined) profilePayload.brand_style_context = brand_style_context
 
     console.log('📝 Profile payload to upsert:', profilePayload)
 
@@ -69,6 +71,7 @@ export async function POST(request: NextRequest) {
       if (brand_logo_url !== undefined) updatePayload.brand_logo_url = brand_logo_url
       if (subscription_plan !== undefined) updatePayload.subscription_plan = subscription_plan
       if (free_images_generated !== undefined) updatePayload.free_images_generated = free_images_generated
+      if (brand_style_context !== undefined) updatePayload.brand_style_context = brand_style_context
 
       console.log('📝 UPDATE payload:', updatePayload)
       
@@ -101,6 +104,7 @@ export async function POST(request: NextRequest) {
         brand_logo_url: brand_logo_url || null,
         subscription_plan: subscription_plan || 'free', // DEFAULT: free tier for new users
         free_images_generated: free_images_generated !== undefined ? free_images_generated : 0, // DEFAULT: 0 generations
+        brand_style_context: brand_style_context || null,
       }
       console.log('📝 INSERT payload being sent to Supabase:', profileInsertPayload)
       

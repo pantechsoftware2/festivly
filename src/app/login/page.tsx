@@ -9,15 +9,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 
-const INDUSTRY_OPTIONS = [
-  'Education',
-  'Real Estate',
-  'Tech & Startup',
-  'Manufacturing',
-  'Retail & Fashion',
-  'Food & Cafe'
-]
-
 function SignInContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

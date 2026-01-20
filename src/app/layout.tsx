@@ -3,6 +3,7 @@ import "./globals.css";
 import { AuthProvider } from "@/lib/auth-context";
 import { ToastProvider } from "@/lib/toast-context";
 import { checkGoogleCloudSetup } from "@/lib/google-cloud-check";
+import { BrandOnboardingWrapper } from "@/components/brand-onboarding-wrapper";
 
 // Check Google Cloud setup on server startup
 if (process.env.NODE_ENV !== 'production') {
@@ -43,6 +44,7 @@ export default function RootLayout({
       >
         <AuthProvider>
           <ToastProvider>
+            <BrandOnboardingWrapper />
             {children}
           </ToastProvider>
         </AuthProvider>

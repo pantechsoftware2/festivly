@@ -6,7 +6,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { generateImages } from '@/lib/vertex-ai'
-import { generatePrompt, getEventName, UPCOMING_EVENTS } from '@/lib/prompt-engine'
+import { generateSmartPrompt } from '@/lib/prompt-engine'
+import { getEventName, UPCOMING_EVENTS } from '@/lib/festival-data'
 import { createServiceRoleClient } from '@/lib/supabase'
 import { v4 as uuidv4 } from 'uuid'
 
@@ -299,12 +300,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     // let imagesGenerated = 0 // DISABLED: All users get unlimited free - no need to track
     let userHasIndustry = false // Track if industry was explicitly set
     
+    let brandStyleContext: string | null = null // Store user's brand style guide
+    
     if (userId) {
       try {
         const supabase = getSupabaseClient()
         const { data, error } = await supabase
           .from('profiles')
-          .select('industry_type, subscription_plan, free_images_generated')
+          .select('industry_type, subscription_plan, free_images_generated, brand_style_context')
           .eq('id', userId)
           .single()
 
@@ -320,9 +323,13 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
           }
           
           userSubscription = data.subscription_plan || 'free'
+          brandStyleContext = data.brand_style_context || null
           // imagesGenerated = DISABLED - all users unlimited
           
-          console.log(`📊 User profile loaded: subscription=${userSubscription}, industry=${userIndustry}, hasIndustry=${userHasIndustry}`)
+          console.log(`📊 User profile loaded: subscription=${userSubscription}, industry=${userIndustry}, hasIndustry=${userHasIndustry}, hasBrandStyle=${!!brandStyleContext}`)
+          if (brandStyleContext) {
+            console.log(`🎨 Brand style context loaded: ${brandStyleContext.substring(0, 100)}...`)
+          }
         } else if (error) {
           console.warn(`⚠️ Profile lookup failed: ${error.message}. Using defaults.`)
         }
@@ -367,7 +374,7 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
       eventName = event.name
       // Use Desi Prompt Engine
-      finalPrompt = generatePrompt(event.name, userIndustry)
+      finalPrompt = await generateSmartPrompt(event.name, userIndustry, brandStyleContext)
       
       // WARN if using default industry (Google signup without selection)
       if (!userHasIndustry) {
@@ -491,7 +498,8 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
 
     console.log(`\n📦 UPLOADING ${base64Images.length} IMAGES TO STORAGE`)
 
-    // Fetch user's brand logo if available
+    // Fetch user's brand logo if available (OPTIONAL)
+    // If no logo is found, images will be generated without branding overlay
     let userBrandLogo: string | null = null
     if (userId) {
       try {
@@ -514,14 +522,17 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
             userBrandLogo = userBrandLogo.trim()
             console.log(`✅ Found user brand logo: ${userBrandLogo.substring(0, 70)}`)
           } else {
-            console.warn(`⚠️ Invalid brand logo format: ${typeof userBrandLogo}`)
+            console.warn(`⚠️ Invalid brand logo format: ${typeof userBrandLogo} - continuing without logo`)
             userBrandLogo = null
           }
         } else if (error) {
-          console.warn(`⚠️ Profile fetch error: ${error.message}`)
+          console.warn(`⚠️ Profile fetch error: ${error.message} - continuing without logo`)
+        } else {
+          console.log(`ℹ️ No brand logo set for user - images will be generated without branding`)
         }
       } catch (err: any) {
-        console.warn(`⚠️ Could not fetch user brand logo: ${err.message}`)
+        console.warn(`⚠️ Could not fetch user brand logo: ${err.message} - continuing without logo`)
+        userBrandLogo = null
       }
     }
 
@@ -543,11 +554,14 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
           continue
         }
 
-        // Add user's brand logo to image if available
-        // NOTE: Logo overlay is now client-side only (in result/page.tsx)
+        // OPTIONAL: Add user's brand logo to image if available
+        // NOTE: Logo overlay is client-side only (in result/page.tsx)
         // This is more reliable and doesn't require additional server dependencies
+        // If no logo is available, the image will be returned without branding
         if (userBrandLogo && userBrandLogo.length > 10) {
           console.log(`   🏷️ Logo URL available: ${userBrandLogo.substring(0, 50)}... (will be applied client-side)`)
+        } else {
+          console.log(`   📌 No logo overlay - generating clean image without branding`)
         }
 
         const fileName = `generated/${userId || 'anonymous'}/${timestamp}-${i}.jpg`
@@ -644,15 +658,26 @@ async function processGenerationRequest(body: GenerateImageRequest): Promise<Nex
     // Check if free user - show pricing modal after 1st generation (DISABLED FOR NOW)
     // const showPricingModal = userSubscription === 'free' && imagesGenerated === 0
 
-    return NextResponse.json({
+    // Return response with optional brandLogoUrl
+    // If brandLogoUrl is null/undefined, client will skip logo compositing
+    const response: GenerateImageResponse = {
       success: true,
       images: generatedImages,
       prompt: finalPrompt,
       eventName: eventName,
       industry: userIndustry,
-      brandLogoUrl: userBrandLogo || undefined,
       // showPricingModal: showPricingModal,
-    })
+    }
+    
+    // Only include brandLogoUrl if it's valid - allows clean images without branding
+    if (userBrandLogo && userBrandLogo.length > 0) {
+      response.brandLogoUrl = userBrandLogo
+      console.log(`✅ Response includes brand logo URL for client-side compositing`)
+    } else {
+      console.log(`✅ Response without brand logo - clean images will be delivered`)
+    }
+    
+    return NextResponse.json(response)
   } catch (error: any) {
     console.error('Generation error:', error?.message)
     console.error('Error stack:', error?.stack)

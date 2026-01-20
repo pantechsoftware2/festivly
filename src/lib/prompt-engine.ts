@@ -1,102 +1,121 @@
+import { VertexAI, HarmCategory, HarmBlockThreshold } from '@google-cloud/vertexai';
+import { industryKeywords, eventKeywords, UPCOMING_EVENTS, getEventName } from './festival-data';
+
+// --- CONFIGURATION ---
+const PROJECT_ID = process.env.GOOGLE_CLOUD_PROJECT_ID;
+const LOCATION = process.env.GOOGLE_CLOUD_REGION || 'us-central1';
+
+// Initialize Vertex AI
+const vertexAI = new VertexAI({ project: PROJECT_ID, location: LOCATION });
+const model = vertexAI.getGenerativeModel({ 
+  model: 'gemini-1.5-flash-001', // Flash is fast & perfect for prompt engineering
+  safetySettings: [{ category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH }]
+});
+
+// --- THE CREATIVE DIRECTOR BRAIN ---
+const CREATIVE_DIRECTOR_SYSTEM_PROMPT = `
+You are the Lead Creative Director at a high-end ad agency. Your goal is to translate a vague user request into a commercially viable visual asset using strategic reasoning.
+
+### PHASE 1: STRATEGIC REASONING
+Analyze the Input:
+1. **Commercial Intent:** Is this B2B (trust) or B2C (emotion)?
+2. **Visual Hierarchy:** Where must text sit? (Dark images→white text)
+3. **The 'Click' Factor:** What visual element stops the scroll?
+4. **Brand Fit:** How does this align with the brand style?
+
+### PHASE 2: ASSET GENERATION
+Generate the JSON output below.
+
+**Image Prompt Rules (CRITICAL for Imagen-4):**
+- ALWAYS specify: Lighting (Volumetric, Studio strobe, Golden hour), Quality (8k, Octane render, Sony A7R IV)
+- **NEGATIVE SPACE:** If text is needed, specify a clean, low-detail area.
+- NO: Watermarks, logos, split screens, borders, collages.
+- COMPOSITION: Main subject centered or third-rule.
+
+### REQUIRED JSON OUTPUT:
+{
+  "reasoning": "Brief strategy explanation",
+  "image_prompt": "Detailed Imagen-4 prompt with lighting, camera, composition. Max 80 words.",
+  "headline_suggestion": "Max 5 words catchy headline",
+  "color_palette_hex": ["#hex1", "#hex2"]
+}
+`;
+
 /**
- * Desi Prompt Engine
- * Generates contextual prompts based on industry + event + logo position
+ * The "Smart" Prompt Generator
+ * Uses Gemini Flash to architect the perfect prompt based on Brand + Event + Industry
  */
+export async function generateSmartPrompt(
+  event: string, 
+  industry: string, 
+  brandStyleContext: string | null = null
+): Promise<string> {
+  try {
+    console.log(`🧠 Creative Director: Analyzing strategy for ${event} in ${industry}...`);
 
-export const industryKeywords = {
-  "Education": "books, graduation caps, globe, bright blue and yellow colors, youthful, future, growth, pencils, notebooks, learning symbols",
-  "Real Estate": "modern architecture, keys, open doors, blueprints, trust, family home, glass buildings, construction, property, investment",
-  "Tech & Startup": "modern, minimal, geometric shapes, laptop, sleek, futuristic, gradient colors, circuits, innovation, code, digital",
-  "Manufacturing": "industrial, gears, factories, metallic textures, orange and grey safety colors, precision, machinery, production, strength",
-  "Retail & Fashion": "lifestyle, shopping bags, vibrant, trendy, elegant, fabrics, luxury, clothing, style, accessories, confidence",
-  "Food & Cafe": "warm lighting, delicious food texture, smoke, steam, cozy, inviting, appetite appeal, freshness, aroma, hospitality"
-}
+    // 1. Construct the Brief for the Creative Director
+    const brief = `
+    CLIENT BRIEF:
+    - Event: ${event} (Context: ${getEventContext(event)})
+    - Industry: ${industry}
+    - Brand Style Guide: ${brandStyleContext || "No specific guide. Aim for high-end, clean, professional."}
+    
+    TASK:
+    Write a photorealistic image generation prompt for a social media post background. 
+    It must visually represent the *feeling* of the event mixed with the *aesthetics* of the industry.
+    `;
 
-export const eventKeywords = {
-  "Lohri": "bonfire, popcorn, peanuts, punjabi folk culture, vibrant night celebration, warm fire glow, joy, harvest, rewari",
-  "Makar Sankranti": "colorful kites in the sky, sun rays, yellow flowers, harvest festival, bright daylight, celebration, flying kites, tradition",
-  "Republic Day": "Indian tricolor flag, ashoka chakra, saffron and green smoke, patriotic, India Gate silhouette, lions, national pride, honor"
-}
+    // 2. Ask Gemini Flash
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts: [{ text: brief }] }],
+      systemInstruction: CREATIVE_DIRECTOR_SYSTEM_PROMPT,
+      generationConfig: { responseMimeType: "application/json" }
+    });
 
-export const eventMessages = {
-  "Lohri": "warmth, celebration, togetherness, harvest joy",
-  "Makar Sankranti": "freedom, hope, aspiration, new beginnings",
-  "Republic Day": "patriotism, pride, unity, national spirit"
-}
+    const response = result.response.candidates?.[0].content.parts[0].text;
+    
+    if (!response) throw new Error("No response from Creative Director");
 
-/**
- * Generate dynamic prompt for Imagen-4
- * @param event - Event name (e.g., "Republic Day")
- * @param industry - Industry type (e.g., "Education")
- */
-export function generatePrompt(event: string, industry: string): string {
-  const indKeywords = industryKeywords[industry as keyof typeof industryKeywords] || industryKeywords["Education"]
-  const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"]
-  const evtMessage = eventMessages[event as keyof typeof eventMessages] || eventMessages["Republic Day"]
+    // 3. Parse and Return the Optimized Prompt
+    const data = JSON.parse(response);
+    console.log(`✨ Strategy: ${data.reasoning}`);
+    
+    // We append specific technical constraints to ensure Imagen behaves
+    return `${data.image_prompt} 
+    
+    TECHNICAL SPECS:
+    - High quality, 8k, photorealistic, professional photography
+    - NO text, NO watermarks, NO borders, NO frames
+    - Seamless, cinematic lighting, wide angle
+    - Style: ${brandStyleContext ? brandStyleContext : 'Modern, clean, corporate'}`;
 
-  // Generate 5-word event headlines
-  const eventHeadlines: Record<string, string> = {
-    "Lohri": "Celebrate Harvest Joy Together",
-    "Makar Sankranti": "Fly High With Tradition",
-    "Republic Day": "Unity Pride National Spirit"
+  } catch (error) {
+    console.error("⚠️ Creative Director unavailable, falling back to keywords:", error);
+    // Fallback to the old method if AI fails
+    return generateStaticPrompt(event, industry, brandStyleContext);
   }
-  const headline = eventHeadlines[event] || "Celebrate This Special Event"
+}
 
-  const prompt = `High-quality professional social media post for ${event}. Brand: ${industry} sector.
+// --- FALLBACK SYSTEM (The old "dumb" logic, kept for safety) ---
 
-Visual elements: ${indKeywords} combined with ${evtKeywords}.
+function getEventContext(event: string): string {
+  const map: Record<string, string> = {
+    "Lohri": "North Indian harvest festival, bonfires, winter night",
+    "Makar Sankranti": "Day festival, kite flying, sun, harvest",
+    "Republic Day": "National pride, military parade, flag colors"
+  };
+  return map[event] || "Celebration";
+}
 
-CRITICAL REQUIREMENTS:
-- Photorealistic, professional business image quality
-- SINGLE UNIFIED COMPOSITION - NOT a collage, split-screen, or multi-panel layout
-- NO collage arrangements, NO multiple separate scenes, NO grid layouts, NO side-by-side comparisons
-- Seamlessly blend industry + event concepts into ONE cohesive visual scene
-- ABSOLUTELY NO FRAMES - no colored borders, no decorative edges, no frame structure around the image content
-- NO left/right side frames or borders of any kind
-- NO top/bottom frame decorations or borders
-- NO text overlays, NO watermarks, NO decorative elements
-- Clean composition without external frames, margins, or border structures
-- Image fills the entire canvas edge to edge with NO empty space reserved for frames
-- COMPOSITION: Main subject/focal point centered and fully visible in top 80% of frame
-- SAFE ZONE: Keep important content away from bottom-right corner (reserved for logo placement)
-- Leave bottom-right corner area (150x150px) with minimal visual clutter for logo overlay
-- Professional lighting, sharp focus, rich colors
-- Suitable for corporate/business use
-- NO cutting of important visual elements at any edge
-- Ensure all key elements fit completely within canvas without cropping
+export function generateStaticPrompt(event: string, industry: string, brandStyleContext?: string | null): string {
+  const indKeywords = industryKeywords[industry as keyof typeof industryKeywords] || industryKeywords["Education"];
+  const evtKeywords = eventKeywords[event as keyof typeof eventKeywords] || eventKeywords["Republic Day"];
 
-Style: Premium professional photography, 1080x1350 format. Full bleed image with NO BORDERS. Centered composition with safe margins.`
+  let prompt = `${event} social media background, ${industry} style. 
+  Visuals: ${indKeywords}, ${evtKeywords}. 
+  High quality, photorealistic, 8k. NO TEXT.`;
 
-  console.log(`📝 Prompt Engine - Generated prompt for ${event} (${industry}): ${prompt.length} characters`)
+  if (brandStyleContext) prompt += ` Style: ${brandStyleContext}`;
   
-  return prompt
-}
-
-/**
- * Get event info
- */
-export const UPCOMING_EVENTS = [
-  {
-    id: "lohri",
-    name: "Lohri",
-    date: "Jan 13",
-    description: "Festival of bonfire and harvest"
-  },
-  {
-    id: "makar-sankranti",
-    name: "Makar Sankranti",
-    date: "Jan 14",
-    description: "Kite flying and harvest festival"
-  },
-  {
-    id: "republic-day",
-    name: "Republic Day",
-    date: "Jan 26",
-    description: "Indian patriotic celebration"
-  }
-]
-
-export function getEventName(eventId: string): string {
-  const event = UPCOMING_EVENTS.find(e => e.id === eventId)
-  return event?.name || "Republic Day"
+  return prompt;
 }

@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/lib/auth-context'
 import { Button } from '@/components/ui/button'
@@ -10,72 +10,6 @@ import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Suspense } from 'react'
 import { createClient } from '@/lib/supabase'
-
-const INDUSTRY_OPTIONS = [
-  'Education',
-  'Real Estate',
-  'Tech & Startup',
-  'Manufacturing',
-  'Retail & Fashion',
-  'Food & Cafe'
-]
-
-// Supported MIME types by Supabase Storage
-const SUPPORTED_MIME_TYPES = [
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-  'image/svg+xml',
-  'image/tiff',
-  'image/bmp'
-]
-
-// Convert unsupported formats to JPEG
-const convertImageIfNeeded = async (file: File): Promise<File> => {
-  if (SUPPORTED_MIME_TYPES.includes(file.type)) {
-    return file
-  }
-
-  // For unsupported formats (like AVIF), convert to JPEG
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const img = new Image()
-      img.onload = () => {
-        const canvas = document.createElement('canvas')
-        canvas.width = img.width
-        canvas.height = img.height
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          reject(new Error('Failed to get canvas context'))
-          return
-        }
-        ctx.drawImage(img, 0, 0)
-        canvas.toBlob(
-          (blob) => {
-            if (!blob) {
-              reject(new Error('Failed to convert image'))
-              return
-            }
-            const newFile = new File(
-              [blob],
-              file.name.replace(/\.[^/.]+$/, '.jpg'),
-              { type: 'image/jpeg' }
-            )
-            resolve(newFile)
-          },
-          'image/jpeg',
-          0.9
-        )
-      }
-      img.onerror = () => reject(new Error('Failed to load image'))
-      img.src = e.target?.result as string
-    }
-    reader.onerror = () => reject(new Error('Failed to read file'))
-    reader.readAsDataURL(file)
-  })
-}
 
 export default function SignUp() {
   return (
@@ -88,12 +22,8 @@ export default function SignUp() {
 function SignUpContent() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [industryType, setIndustryType] = useState<string | null>(null)
-  const [logoFile, setLogoFile] = useState<File | null>(null)
-  const [logoPreview, setLogoPreview] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -115,49 +45,6 @@ function SignUpContent() {
     }
   }, [user, authLoading, router, loading])
 
-  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file')
-        return
-      }
-      // Validate file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Logo file must be less than 5MB')
-        return
-      }
-      
-      // Convert unsupported formats to JPEG and create preview
-      convertImageIfNeeded(file).then((convertedFile) => {
-        setLogoFile(convertedFile)
-        setError(null)
-        // Create preview using a Promise-based FileReader to ensure it completes
-        new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => {
-            const result = reader.result as string
-            resolve(result)
-          }
-          reader.onerror = () => {
-            console.error('Failed to read file for preview')
-            resolve('') // Resolve with empty string on error
-          }
-          reader.readAsDataURL(convertedFile)
-        }).then((preview) => {
-          if (preview) {
-            setLogoPreview(preview)
-            console.log('✅ Logo preview set successfully')
-          }
-        })
-      }).catch((err) => {
-        setError(`Failed to process image: ${err.message}`)
-        console.error('Image processing error:', err)
-      })
-    }
-  }
-
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -168,11 +55,6 @@ function SignUpContent() {
 
     if (password.length < 6) {
       setError('Password must be at least 6 characters')
-      return
-    }
-
-    if (!industryType) {
-      setError('Please select your business industry')
       return
     }
 
@@ -191,42 +73,9 @@ function SignUpContent() {
 
       const userId = authData.user.id
 
-      // Upload logo if provided
-      let logoUrl: string | null = null
-      if (logoFile) {
-        try {
-          // Use signup API endpoint (uses service role key, bypasses RLS)
-          const formData = new FormData()
-          formData.append('logo', logoFile)
-          formData.append('userId', userId)
-
-          console.log('📤 Uploading logo for user:', userId, 'File:', logoFile.name, 'Size:', logoFile.size)
-
-          const response = await fetch('/api/signup/upload-logo', {
-            method: 'POST',
-            body: formData,
-          })
-
-          if (!response.ok) {
-            const errorData = await response.json()
-            console.error('❌ Logo upload failed:', errorData)
-            setError(`Logo upload failed: ${errorData.error}. Continuing with signup.`)
-            // Don't throw - continue with signup
-          } else {
-            const uploadResult = await response.json()
-            logoUrl = uploadResult.logoUrl
-            console.log('✅ Logo uploaded successfully:', logoUrl)
-          }
-        } catch (logoError: any) {
-          console.error('❌ Logo upload error:', logoError.message)
-          setError(`Logo upload error: ${logoError.message}. Continuing with signup.`)
-          // Don't throw - continue with signup even if logo upload fails
-        }
-      }
-
-      // Update user profile with industry and logo using API endpoint
+      // Create user profile using API endpoint
       try {
-        console.log('💾 Saving profile with logo URL:', logoUrl)
+        console.log('💾 Creating user profile for:', userId)
         const profileResponse = await fetch('/api/profiles', {
           method: 'POST',
           headers: {
@@ -235,8 +84,6 @@ function SignUpContent() {
           body: JSON.stringify({
             id: userId,
             email: email,
-            industry_type: industryType || null,  // Explicit null if empty
-            brand_logo_url: logoUrl || null,  // Explicit null if upload failed
             subscription_plan: 'free', // CRITICAL: Default for new signups
             free_images_generated: 0,  // CRITICAL: Initialize counter
           }),
@@ -330,51 +177,6 @@ function SignUpContent() {
                 required
               />
             </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                Your Business Category *
-              </label>
-              <select
-                value={industryType || ''}
-                onChange={(e) => setIndustryType(e.target.value || null)}
-                className="w-full px-3 sm:px-4 py-2 sm:py-2 bg-gray-50 border border-gray-300 rounded-lg text-black text-sm sm:text-base placeholder-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
-                required
-              >
-                <option value="">-- Select Industry --</option>
-                {INDUSTRY_OPTIONS.map((industry) => (
-                  <option key={industry} value={industry}>
-                    {industry}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                Upload Your Logo (Optional)
-              </label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleLogoSelect}
-                className="hidden"
-                disabled={loading}
-              />
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                className="w-full px-3 sm:px-4 py-2 sm:py-2 bg-gray-50 border-2 border-dashed border-gray-300 rounded-lg text-gray-700 text-sm sm:text-base hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={loading}
-              >
-                {logoFile ? `✓ Logo selected: ${logoFile.name}` : '📷 Choose Logo (PNG, JPG)'}
-              </button>
-              {logoPreview && (
-                <div className="mt-2 sm:mt-3 flex justify-center">
-                  <img src={logoPreview} alt="Logo preview" className="h-16 sm:h-20 object-contain" />
-                </div>
-              )}
-            </div>
             <Button 
               type="submit" 
               className="w-full bg-black hover:bg-gray-900 text-white font-semibold py-2 text-sm sm:text-base" 
@@ -397,44 +199,13 @@ function SignUpContent() {
 
           <Button
             onClick={async () => {
-              if (!industryType) {
-                setError('Please select your business industry before signing in with Google')
-                return
-              }
               try {
                 setLoading(true)
                 setError(null)
-                // Store industry in sessionStorage for after Google Sign-In callback
+                // Mark this as a new signup (not an existing user login)
                 if (typeof window !== 'undefined') {
-                  console.log('🔐 Google signup: Storing pending data in sessionStorage')
-                  sessionStorage.setItem('pending_industry', industryType)
-                  console.log('✅ Industry stored:', industryType)
-                  // Mark this as a new signup (not an existing user login)
+                  console.log('🔐 Google signup: Marking as new signup')
                   sessionStorage.setItem('is_new_signup', 'true')
-                  
-                  // Also store logo file as base64 if selected
-                  if (logoFile) {
-                    console.log('📷 Google signup: Converting logo to base64 before OAuth...')
-                    // IMPORTANT: Wait for FileReader to complete before redirecting!
-                    await new Promise<void>((resolve) => {
-                      const reader = new FileReader()
-                      reader.onloadend = () => {
-                        const base64 = reader.result as string
-                        sessionStorage.setItem('pending_logo_base64', base64)
-                        sessionStorage.setItem('pending_logo_name', logoFile.name)
-                        sessionStorage.setItem('pending_logo_type', logoFile.type)
-                        console.log('✅ Logo converted and stored in sessionStorage')
-                        resolve()
-                      }
-                      reader.onerror = () => {
-                        console.error('❌ FileReader error')
-                        resolve() // Continue anyway
-                      }
-                      reader.readAsDataURL(logoFile)
-                    })
-                  } else {
-                    console.log('⚠️ No logo file selected for Google signup')
-                  }
                 }
                 console.log('🔑 Initiating Google Sign-In...')
                 await signInWithGoogle()
